@@ -26,7 +26,7 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, fullName, "reader", readerType);
+      const { error } = await signUp(email, password, fullName, readerType);
       if (error) setError(error);
       else setError("Tạo tài khoản thành công! Vui lòng đăng nhập.");
     }

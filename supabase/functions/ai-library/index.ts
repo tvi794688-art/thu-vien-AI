@@ -28,7 +28,6 @@ interface RequestBody {
   action: "search" | "summarize" | "recommend";
   query?: string;
   bookId?: string;
-  readerId?: string;
   history?: ChatMessage[];
 }
 
@@ -136,7 +135,7 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
 
   if (!apiKey) {
     // Fallback: rule-based response when no AI key is configured
-    return fallbackResponse(systemPrompt, userPrompt);
+    return fallbackResponse(systemPrompt);
   }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -167,7 +166,7 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
   return content;
 }
 
-function fallbackResponse(systemPrompt: string, userPrompt: string): string {
+function fallbackResponse(systemPrompt: string): string {
   // Simple rule-based fallback when no AI key is set
   if (systemPrompt.includes("tra cứu")) {
     return "Hệ thống AI chưa được cấu hình khóa API. Tuy nhiên, bạn có thể sử dụng chức năng tra cứu sách bằng từ khóa ở trang Tìm kiếm sách. Hệ thống sẽ lọc sách theo tên, tác giả và thể loại.";
@@ -189,13 +188,45 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+    const authorization = req.headers.get("Authorization");
+    const accessToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: "Authentication required", success: false }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const authClient = createClient(supabaseUrl, anonKey);
+    const { data: { user }, error: authError } = await authClient.auth.getUser(accessToken);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Invalid session", success: false }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Request data uses the caller's JWT so PostgreSQL RLS remains active.
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError || !profile || !["admin", "librarian", "reader"].includes(profile.role)) {
+      return new Response(JSON.stringify({ error: "Unauthorized", success: false }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const body: RequestBody = await req.json();
-    const { action, query, bookId, readerId } = body;
+    const { action, query, bookId } = body;
 
     let systemPrompt = "";
     let userPrompt = "";
@@ -243,15 +274,17 @@ Deno.serve(async (req: Request) => {
 
       // Get reader's loan history (anonymized - only titles and categories)
       let readerHistory: string[] = [];
-      if (readerId) {
+      if (profile.role === "reader") {
         const { data: loans } = await supabase
           .from("loans")
           .select("book_id, books(title, category, author)")
-          .eq("reader_id", readerId)
+          .eq("reader_id", user.id)
           .limit(20);
 
-        readerHistory = (loans || []).map((l: any) =>
-          l.books ? `"${l.books.title}" (${l.books.category})` : ""
+        readerHistory = (loans || []).map((loan) =>
+          loan.books && !Array.isArray(loan.books)
+            ? `"${loan.books.title}" (${loan.books.category})`
+            : ""
         ).filter(Boolean);
       }
 

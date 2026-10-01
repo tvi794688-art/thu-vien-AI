@@ -15,7 +15,7 @@ export default function ReadersPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "", reader_type: "student", card_status: "active", address: "" });
+  const [form, setForm] = useState({ full_name: "", phone: "", reader_type: "student", card_status: "active", address: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,13 +60,13 @@ export default function ReadersPage() {
 
   function openAdd() {
     setEditing(null);
-    setForm({ full_name: "", email: "", phone: "", reader_type: "student", card_status: "active", address: "" });
+    setForm({ full_name: "", phone: "", reader_type: "student", card_status: "active", address: "" });
     setModalOpen(true);
   }
 
   function openEdit(r: Profile) {
     setEditing(r);
-    setForm({ full_name: r.full_name, email: r.email || "", phone: r.phone || "", reader_type: r.reader_type, card_status: r.card_status, address: r.address || "" });
+    setForm({ full_name: r.full_name, phone: r.phone || "", reader_type: r.reader_type, card_status: r.card_status, address: r.address || "" });
     setModalOpen(true);
   }
 
@@ -75,10 +75,9 @@ export default function ReadersPage() {
     if (editing) {
       await supabase.from("profiles").update({
         full_name: form.full_name,
-        email: form.email || null,
         phone: form.phone || null,
-        reader_type: form.reader_type as any,
-        card_status: form.card_status as any,
+        reader_type: form.reader_type as Profile["reader_type"],
+        card_status: form.card_status as Profile["card_status"],
         address: form.address || null,
       }).eq("id", editing.id);
     }
@@ -93,7 +92,7 @@ export default function ReadersPage() {
         r.full_name,
         r.email || "",
         r.phone || "",
-        (r as any).role === "librarian" ? "Thủ thư" : (READER_TYPES[r.reader_type] || r.reader_type),
+        r.role === "librarian" ? "Thủ thư" : (READER_TYPES[r.reader_type] || r.reader_type),
         CARD_STATUSES[r.card_status] || r.card_status,
         r.address || ""
       ]),
@@ -155,7 +154,7 @@ export default function ReadersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {(r as any).role === "librarian" ? (
+                      {r.role === "librarian" ? (
                         <Badge color="purple">Thủ thư</Badge>
                       ) : (
                         <Badge color="blue">{READER_TYPES[r.reader_type] || r.reader_type || "Độc giả"}</Badge>
@@ -183,8 +182,10 @@ export default function ReadersPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Email</label>
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Loại độc giả</label>
+              <select value={form.reader_type} onChange={(e) => setForm({ ...form, reader_type: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {Object.entries(READER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1.5 block">Số điện thoại</label>
@@ -192,12 +193,6 @@ export default function ReadersPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Loại độc giả</label>
-              <select value={form.reader_type} onChange={(e) => setForm({ ...form, reader_type: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {Object.entries(READER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </div>
             <div>
               <label className="text-sm font-medium text-slate-700 mb-1.5 block">Trạng thái thẻ</label>
               <select value={form.card_status} onChange={(e) => setForm({ ...form, card_status: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">

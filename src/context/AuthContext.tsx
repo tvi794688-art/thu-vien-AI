@@ -12,7 +12,6 @@ interface AuthContextValue {
     email: string,
     password: string,
     fullName: string,
-    role?: string,
     readerType?: string,
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -71,14 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     fullName: string,
-    role: string = "reader",
     readerType: string = "student",
   ) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, role, reader_type: readerType },
+        data: { full_name: fullName, reader_type: readerType },
       },
     });
     return { error: error?.message ?? null };

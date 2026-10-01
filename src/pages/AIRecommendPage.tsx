@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { aiRecommendBooks } from "@/lib/ai";
-import { useAuth } from "@/context/AuthContext";
 import { PageHeader } from "@/components/UI";
 import { Sparkles, RefreshCw, BookHeart } from "lucide-react";
 
 export default function AIRecommendPage() {
-  const { profile } = useAuth();
   const [recommendation, setRecommendation] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasResult, setHasResult] = useState(false);
@@ -14,10 +12,10 @@ export default function AIRecommendPage() {
     setLoading(true);
     setHasResult(true);
     try {
-      const res = await aiRecommendBooks(profile?.id);
+      const res = await aiRecommendBooks();
       setRecommendation(res.response);
-    } catch (err: any) {
-      setRecommendation(`Lỗi: ${err.message}`);
+    } catch (err: unknown) {
+      setRecommendation(`Lỗi: ${err instanceof Error ? err.message : String(err)}`);
     }
     setLoading(false);
   }

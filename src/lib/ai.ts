@@ -1,40 +1,31 @@
 import type { AIResponse, ChatMessage } from "@/types";
-import { AI_FUNCTION_URL } from "@/lib/supabase";
+import { AI_FUNCTION_URL, supabase } from "@/lib/supabase";
 
-const headers = {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-};
-
-export async function aiSearchBooks(query: string, history?: ChatMessage[]): Promise<AIResponse> {
+async function invokeAI(body: Record<string, unknown>): Promise<AIResponse> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Cần đăng nhập để sử dụng AI");
   const res = await fetch(AI_FUNCTION_URL, {
     method: "POST",
-    headers,
-    body: JSON.stringify({ action: "search", query, history }),
+    headers: {
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(body),
   });
   const data = await res.json();
-  if (!data.success) throw new Error(data.error || "AI tra cứu thất bại");
+  if (!res.ok || !data.success) throw new Error(data.error || "Yêu cầu AI thất bại");
   return data;
+}
+
+export async function aiSearchBooks(query: string, history?: ChatMessage[]): Promise<AIResponse> {
+  return invokeAI({ action: "search", query, history });
 }
 
 export async function aiSummarizeBook(bookId: string): Promise<AIResponse> {
-  const res = await fetch(AI_FUNCTION_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ action: "summarize", bookId }),
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || "AI tóm tắt thất bại");
-  return data;
+  return invokeAI({ action: "summarize", bookId });
 }
 
-export async function aiRecommendBooks(readerId?: string): Promise<AIResponse> {
-  const res = await fetch(AI_FUNCTION_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ action: "recommend", readerId }),
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || "AI gợi ý thất bại");
-  return data;
+export async function aiRecommendBooks(): Promise<AIResponse> {
+  return invokeAI({ action: "recommend" });
 }
