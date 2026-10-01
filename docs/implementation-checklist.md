@@ -30,7 +30,7 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Planned source changes:** Align page/action visibility and field validation; show useful result/error feedback.
 - **Verification steps:** Direct Librarian settings insert/update is denied; Admin valid update succeeds; invalid settings rejected by trusted boundary; settings remain readable according to approved rules.
 - **Expected Git commit scope:** `security: restrict settings writes to admins`
-- **Status:** Planned
+- **Status:** Completed — Database/RLS enforcement deployed and runtime verified; Admin-only UI access, validation, success/error feedback, and unauthorized navigation behavior verified.
 
 ## Batch 3 — Borrow eligibility and configured due date
 

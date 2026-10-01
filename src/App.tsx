@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import LoginPage from "@/pages/LoginPage";
 import Layout, { type PageKey } from "@/components/Layout";
@@ -17,27 +17,42 @@ import { LoadingSpinner } from "@/components/UI";
 
 function AppContent() {
   const { session, profile, loading } = useAuth();
-  const [page, setPage] = useState<PageKey>("dashboard");
+const [page, setPage] = useState<PageKey>("dashboard");
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <LoadingSpinner label="Đang tải..." />
-      </div>
-    );
-  }
+const isStaff =
+  profile?.role === "admin" || profile?.role === "librarian";
 
-  if (!session || !profile) {
-    return <LoginPage />;
-  }
+useEffect(() => {
+  if (!profile) return;
 
-  const isStaff = profile.role === "admin" || profile.role === "librarian";
+  const staffOnly: PageKey[] = [
+    "readers",
+    "statistics",
+    "reports",
+  ];
 
-  // Guard: readers can't access staff-only pages
-  const staffOnly: PageKey[] = ["readers", "statistics", "reports", "settings"];
-  if (!isStaff && staffOnly.includes(page)) {
+  const unauthorizedStaffPage =
+    !isStaff && staffOnly.includes(page);
+
+  const unauthorizedSettingsPage =
+    page === "settings" && profile.role !== "admin";
+
+  if (unauthorizedStaffPage || unauthorizedSettingsPage) {
     setPage("dashboard");
   }
+}, [page, isStaff, profile]);
+
+if (loading) {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <LoadingSpinner label="Đang tải..." />
+    </div>
+  );
+}
+
+if (!session || !profile) {
+  return <LoginPage />;
+}
 
   function renderPage() {
     switch (page) {
