@@ -45,7 +45,7 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Planned source changes:** Call trusted contract and present business-rule errors without treating client due date as authoritative.
 - **Verification steps:** Test active/inactive and non-Reader targets, stock zero/one, forged due date, configured period, and simultaneous last-copy attempts; verify stock never becomes negative.
 - **Expected Git commit scope:** `fix: validate borrower and derive loan due date in database`
-- **Status:** Planned
+- **Status:** Completed — Trusted borrow eligibility, configured due date, Vietnam-local borrow date, frontend integration, stock zero/one behavior, and transactional inventory protection verified. Concurrency safety is supported by the `FOR UPDATE` locking design and reviewed at the database boundary.
 
 ## Batch 4 — Database domain constraints
 

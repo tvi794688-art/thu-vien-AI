@@ -1,7 +1,7 @@
 export type UserRole = "admin" | "librarian" | "reader";
 export type CardStatus = "active" | "suspended" | "expired";
 export type ReaderType = "student" | "teacher" | "staff" | "guest";
-export type LoanStatus = "borrowing" | "returned" | "overdue";
+export type LoanStatus = "active" | "returned" | "overdue";
 export type ReservationStatus = "pending" | "fulfilled" | "cancelled";
 
 export interface Profile {
@@ -34,15 +34,15 @@ export interface Book {
 
 export interface Loan {
   id: string;
-  book_id: string;
-  reader_id: string;
-  borrow_date: string;
+  user_id: string | null;
+  book_id: string | null;
+  borrow_date: string | null;
   due_date: string;
   return_date: string | null;
-  status: LoanStatus;
-  renewed_count: number;
-  note: string | null;
-  created_at: string;
+  status: LoanStatus | null;
+  fine_amount: number | null;
+  created_at: string | null;
+  updated_at: string | null;
   books?: Book;
   profiles?: Profile;
 }
