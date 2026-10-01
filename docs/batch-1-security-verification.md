@@ -5,7 +5,7 @@
 - Reviewer: Sinh viên
 - Review Date: 01/10/2026
 - Batch: 1 - Security and Identity Boundary
-- Status: IMPLEMENTED - PENDING DATABASE DEPLOYMENT VERIFICATION
+- Status: VERIFIED - DEPLOYED AND RUNTIME TESTED
 
 ## Scope
 
@@ -98,37 +98,52 @@ Full-project lint vẫn có baseline errors ngoài phạm vi Batch 1.
 
 ## Known Limitations
 
-Migration:
+Batch 1 đã được deploy và runtime verified trên Supabase thật.
 
-`20261001090000_batch1_profile_security.sql`
+Đã xác nhận:
 
-chưa được áp dụng lên Supabase database thật.
+- migration `20261001090000_batch1_profile_security.sql` đã được áp dụng thành công;
+- Reader privilege escalation attempt bị chặn;
+- Librarian unauthorized role change bị chặn;
+- Admin/Librarian profile management hoạt động đúng theo quyền đã phê duyệt;
+- RLS và trigger protection hoạt động sau deployment;
+- Edge Function `ai-library` đã được deploy và ở trạng thái ACTIVE;
+- unauthenticated request bị chặn với HTTP 401;
+- authenticated Reader request gọi Edge Function thành công.
 
-Do đó chưa có runtime database verification cho:
+Giới hạn còn lại:
 
-- Reader privilege escalation attempt;
-- Librarian unauthorized role change;
-- Admin/Librarian profile management sau migration;
-- RLS behavior sau deployment.
+- AI provider chưa được cấu hình API key nên hiện đang dùng fallback response;
+- Gemini/RAG chưa được triển khai trong Batch 1 và sẽ được xử lý ở Batch 11.
 
 ## DB-001 Status
 
-DB-001 vẫn giữ trạng thái:
+DB-001 hiện có trạng thái:
 
-OPEN
+RESOLVED
 
-Batch 1 đã implement code fix nhưng DB-001 chỉ được xem xét chuyển sang Resolved sau khi:
+DB-001 được đánh dấu Resolved vì:
 
-1. migration được deploy;
-2. database security tests được chạy;
-3. Human Verification xác nhận runtime behavior.
+1. migration đã được deploy thành công;
+2. database security tests đã được chạy và PASS;
+3. Human Verification đã xác nhận runtime behavior;
+4. Reader không thể tự thay đổi role hoặc card_status;
+5. Librarian không thể nâng quyền Reader;
+6. authenticated identity được lấy từ verified Supabase session thay vì dữ liệu do client tự gửi.
 
 ## Human Verification Decision
 
-Status: APPROVED FOR COMMIT
 
-Batch 1 implementation được chấp nhận để lưu vào Git.
+Status: VERIFIED AND COMPLETED
 
-Việc APPROVED FOR COMMIT không đồng nghĩa DB-001 đã Resolved.
+Batch 1 đã hoàn tất sau khi:
 
-Bước tiếp theo là commit Batch 1, sau đó thực hiện deployment/runtime verification theo quy trình phù hợp.
+- code implementation được review;
+- migration được deploy lên Supabase thật;
+- database security tests PASS;
+- Edge Function được deploy thành công;
+- unauthenticated request bị chặn với HTTP 401;
+- authenticated Reader request gọi Edge Function thành công;
+- DB-001 được xác nhận RESOLVED.
+
+Batch 1 đủ điều kiện chuyển sang Batch 2.
