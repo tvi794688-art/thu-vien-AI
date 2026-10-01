@@ -60,7 +60,7 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Planned source changes:** Align validation and map constraint errors to useful messages.
 - **Verification steps:** Check existing records before migration; prove invalid bounds/enums/values are rejected and valid workflows persist; confirm no unreviewed row mutation is needed.
 - **Expected Git commit scope:** `db: enforce approved domain constraints`
-- **Status:** Planned
+- **Status:** Completed — Approved database domain constraints deployed and runtime verified. Existing data passed pre-migration validation with zero violations; invalid inventory, enum, monetary, date, and settings values are rejected at the database boundary; valid book create/update and existing borrow/settings workflows continue to operate correctly; frontend book validation now preserves borrowed-copy counts and surfaces write errors.
 
 ## Batch 5 — Protected renewal operation
 

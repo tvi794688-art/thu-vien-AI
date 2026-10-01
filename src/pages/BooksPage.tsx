@@ -79,29 +79,99 @@ export default function BooksPage() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = {
-      book_code: form.book_code,
-      title: form.title,
-      author: form.author,
-      category: form.category,
-      publisher: form.publisher || null,
-      publish_year: form.publish_year ? parseInt(form.publish_year) : null,
-      isbn: form.isbn || null,
-      quantity: parseInt(form.quantity) || 1,
-      description: form.description || null,
-      cover_color: form.cover_color,
-    };
+  e.preventDefault();
 
-    if (editing) {
-      const diff = (parseInt(form.quantity) || 1) - editing.quantity;
-      await supabase.from("books").update({ ...payload, available: editing.available + diff }).eq("id", editing.id);
-    } else {
-      await supabase.from("books").insert({ ...payload, available: payload.quantity });
-    }
-    setModalOpen(false);
-    loadBooks();
+  const quantity = Number(form.quantity);
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    alert("Số lượng sách phải là số nguyên lớn hơn hoặc bằng 1.");
+    return;
   }
+
+  if (!form.book_code.trim()) {
+    alert("Mã sách không được để trống.");
+    return;
+  }
+
+  if (!form.title.trim()) {
+    alert("Tên sách không được để trống.");
+    return;
+  }
+
+  if (!form.author.trim()) {
+    alert("Tác giả không được để trống.");
+    return;
+  }
+
+  const payload = {
+    book_code: form.book_code.trim(),
+    title: form.title.trim(),
+    author: form.author.trim(),
+    category: form.category,
+    publisher: form.publisher.trim() || null,
+    publish_year: form.publish_year
+      ? parseInt(form.publish_year)
+      : null,
+    isbn: form.isbn.trim() || null,
+    quantity,
+    description: form.description.trim() || null,
+    cover_color: form.cover_color,
+  };
+
+  try {
+    if (editing) {
+      const borrowedCopies =
+        editing.quantity - editing.available;
+
+      if (quantity < borrowedCopies) {
+        alert(
+          `Không thể giảm tổng số lượng xuống ${quantity} vì hiện đang có ${borrowedCopies} bản được mượn.`
+        );
+        return;
+      }
+
+      const newAvailable =
+        quantity - borrowedCopies;
+
+      const { error } = await supabase
+        .from("books")
+        .update({
+          ...payload,
+          available: newAvailable,
+        })
+        .eq("id", editing.id);
+
+      if (error) {
+        throw error;
+      }
+
+      alert("Cập nhật sách thành công.");
+    } else {
+      const { error } = await supabase
+        .from("books")
+        .insert({
+          ...payload,
+          available: quantity,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      alert("Thêm sách thành công.");
+    }
+
+    setModalOpen(false);
+    await loadBooks();
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Không thể lưu thông tin sách.";
+
+    alert(`Lỗi: ${message}`);
+  }
+}
 
   async function handleDelete(book: Book) {
     if (!confirm(`Xóa sách "${book.title}"?`)) return;
