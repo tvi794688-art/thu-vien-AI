@@ -90,7 +90,7 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Planned source changes:** Use trusted create/cancel/state-transition calls and display appropriate feedback.
 - **Verification steps:** Test available/unavailable books, concurrent duplicate requests, initial status enforcement, owner/staff cancellation permissions, FIFO order, loan fulfillment transition, and no automatic expiry.
 - **Expected Git commit scope:** `fix: enforce reservation lifecycle and queue rules`
-- **Status:** Planned
+- **Status:** Completed — Trusted reservation lifecycle deployed and runtime verified. Reservation creation is limited to unavailable books, duplicate pending requests are blocked with a concurrency-safe partial unique index, initial status is database-controlled as pending, owners and staff can cancel according to authorization rules, FIFO order is enforced, fulfillment creates the loan and transitions the reservation atomically, direct authenticated writes are blocked, no automatic expiry exists, and ReservationsPage now uses trusted RPCs with FIFO display and reader self-cancellation.
 
 ## Batch 7 — Fine consistency and payment
 

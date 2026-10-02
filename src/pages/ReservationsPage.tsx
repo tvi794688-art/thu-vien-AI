@@ -18,7 +18,10 @@ export default function ReservationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    let query = supabase.from("reservations").select("*, books(*), profiles(*)").order("created_at", { ascending: false });
+    let query = supabase
+  .from("reservations")
+  .select("*, books(*), profiles(*)")
+  .order("created_at", { ascending: true });
     if (!isStaff && profile) query = query.eq("reader_id", profile.id);
     const { data } = await query;
     setReservations((data || []) as unknown as Reservation[]);
@@ -32,23 +35,76 @@ export default function ReservationsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleReserve(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.book_id || !profile) return;
-    await supabase.from("reservations").insert({
-      book_id: form.book_id,
-      reader_id: profile.id,
-      status: "pending",
-      note: form.note || null,
-    });
-    setModalOpen(false);
-    setForm({ book_id: "", note: "" });
-    load();
+  e.preventDefault();
+
+  if (!form.book_id) {
+    alert("Vui lòng chọn sách muốn đặt trước.");
+    return;
   }
 
-  async function handleStatus(res: Reservation, status: "fulfilled" | "cancelled") {
-    await supabase.from("reservations").update({ status }).eq("id", res.id);
-    load();
+  try {
+    const { error } = await supabase.rpc("create_reservation", {
+      p_book_id: form.book_id,
+      p_note: form.note || null,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    alert("Đặt trước sách thành công.");
+
+    setModalOpen(false);
+    setForm({ book_id: "", note: "" });
+
+    await load();
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Lỗi khi đặt trước sách";
+
+    alert(message);
   }
+}
+
+  async function handleStatus(
+  res: Reservation,
+  status: "fulfilled" | "cancelled"
+) {
+  try {
+    if (status === "fulfilled") {
+      const { error } = await supabase.rpc("fulfill_reservation", {
+        p_reservation_id: res.id,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      alert("Đã xử lý đặt trước và tạo phiếu mượn thành công.");
+    } else {
+      const { error } = await supabase.rpc("cancel_reservation", {
+        p_reservation_id: res.id,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      alert("Đã hủy yêu cầu đặt trước.");
+    }
+
+    await load();
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Lỗi khi xử lý yêu cầu đặt trước";
+
+    alert(message);
+  }
+}
 
   const statusMap: Record<string, { label: string; color: string }> = {
     pending: { label: "Chờ duyệt", color: "amber" },
@@ -90,16 +146,27 @@ export default function ReservationsPage() {
                   <p>Ngày đặt: {formatDate(res.reserved_date)}</p>
                   {res.note && <p>Ghi chú: {res.note}</p>}
                 </div>
-                {isStaff && res.status === "pending" && (
-                  <div className="flex gap-2 pt-3 border-t border-slate-50">
-                    <button onClick={() => handleStatus(res, "fulfilled")} className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt
-                    </button>
-                    <button onClick={() => handleStatus(res, "cancelled")} className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition">
-                      <XCircle className="w-3.5 h-3.5" /> Hủy
-                    </button>
-                  </div>
-                )}
+                {res.status === "pending" && (
+  <div className="flex gap-2 pt-3 border-t border-slate-50">
+    {isStaff && (
+      <button
+        onClick={() => handleStatus(res, "fulfilled")}
+        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        Duyệt
+      </button>
+    )}
+
+    <button
+      onClick={() => handleStatus(res, "cancelled")}
+      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+    >
+      <XCircle className="w-3.5 h-3.5" />
+      Hủy
+    </button>
+  </div>
+)}
               </div>
             );
           })}
