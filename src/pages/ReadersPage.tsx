@@ -8,11 +8,14 @@ import { exportToCSV } from "@/lib/utils";
 
 const READER_TYPES: Record<string, string> = { student: "Học sinh", teacher: "Giáo viên", staff: "Nhân viên", guest: "Khách" };
 const CARD_STATUSES: Record<string, string> = { active: "Hoạt động", suspended: "Tạm khóa", expired: "Hết hạn" };
+const PAGE_SIZE = 10;
 
 export default function ReadersPage() {
   const [readers, setReaders] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
 
@@ -55,7 +58,15 @@ export default function ReadersPage() {
       query = query.eq("role", "reader");
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+
+    if (error) {
+      alert(`Không thể tải danh sách độc giả: ${error.message}`);
+      setReaders([]);
+      setLoading(false);
+      return;
+    }
+
     setReaders((data || []) as Profile[]);
     setLoading(false);
   }, []);
@@ -66,6 +77,17 @@ export default function ReadersPage() {
     const q = search.toLowerCase();
     return !q || r.full_name.toLowerCase().includes(q) || (r.email || "").toLowerCase().includes(q);
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  const paginatedReaders = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   function openAdd() {
     setEditing(null);
@@ -102,6 +124,8 @@ export default function ReadersPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (saving) return;
+
     const fullName = form.full_name.trim();
     const email = form.email.trim().toLowerCase();
 
@@ -110,23 +134,7 @@ export default function ReadersPage() {
       return;
     }
 
-    if (editing) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName,
-          phone: form.phone.trim() || null,
-          reader_type: form.reader_type as Profile["reader_type"],
-          card_status: form.card_status as Profile["card_status"],
-          address: form.address.trim() || null,
-        })
-        .eq("id", editing.id);
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-    } else {
+    if (!editing) {
       if (!email) {
         alert("Vui lòng nhập email.");
         return;
@@ -136,36 +144,60 @@ export default function ReadersPage() {
         alert("Mật khẩu phải có ít nhất 6 ký tự.");
         return;
       }
-
-      const { data, error } = await supabase.functions.invoke(
-        "create-reader",
-        {
-          body: {
-            full_name: fullName,
-            email,
-            password: form.password,
-            phone: form.phone.trim(),
-            reader_type: form.reader_type,
-            address: form.address.trim(),
-          },
-        }
-      );
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      if (data?.error) {
-        alert(data.error);
-        return;
-      }
-
-      alert("Tạo độc giả thành công.");
     }
 
-    setModalOpen(false);
-    await load();
+    setSaving(true);
+
+    try {
+      if (editing) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName,
+            phone: form.phone.trim() || null,
+            reader_type: form.reader_type as Profile["reader_type"],
+            card_status: form.card_status as Profile["card_status"],
+            address: form.address.trim() || null,
+          })
+          .eq("id", editing.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+      } else {
+        const { data, error } = await supabase.functions.invoke(
+          "create-reader",
+          {
+            body: {
+              full_name: fullName,
+              email,
+              password: form.password,
+              phone: form.phone.trim(),
+              reader_type: form.reader_type,
+              address: form.address.trim(),
+            },
+          }
+        );
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        if (data?.error) {
+          alert(data.error);
+          return;
+        }
+
+        alert("Tạo độc giả thành công.");
+      }
+
+      setModalOpen(false);
+      await load();
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleExport() {
@@ -218,7 +250,7 @@ export default function ReadersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map((r) => (
+                {paginatedReaders.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50 transition">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -254,6 +286,34 @@ export default function ReadersPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-6">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang trước
+          </button>
+
+          <span className="text-sm text-slate-500">
+            Trang {currentPage} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage((page) => Math.min(totalPages, page + 1))
+            }
+            disabled={currentPage >= totalPages}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang sau
+          </button>
         </div>
       )}
 
@@ -364,8 +424,22 @@ export default function ReadersPage() {
             <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Hủy</button>
-            <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">{editing ? "Cập nhật" : "Thêm"}</button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Đang lưu..." : editing ? "Cập nhật" : "Thêm"}
+            </button>
           </div>
         </form>
       </Modal>

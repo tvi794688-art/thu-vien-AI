@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { BookOpen, Library, User, Lock, Mail, UserPlus, LogIn } from "lucide-react";
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,13 +14,44 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  async function handleForgotPassword() {
+    setError(null);
+
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      setError("Vui lòng nhập email trước.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await resetPassword(trimmedEmail);
+
+    if (error) {
+      setError(error);
+    } else {
+      setError("Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.");
+    }
+
+    setLoading(false);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedEmail) {
+      setError("Vui lòng nhập email.");
+      setLoading(false);
+      return;
+    }
+
     if (mode === "signin") {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(trimmedEmail, password);
       if (error) setError(error);
     } else {
       if (password.length < 6) {
@@ -36,7 +67,7 @@ export default function LoginPage() {
       }
 
       const { error } = await signUp(
-        email.trim(),
+        trimmedEmail,
         password,
         fullName.trim(),
         readerType
@@ -125,6 +156,19 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {mode === "signin" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                >
+                  Quên mật khẩu?
+                </button>
+              </div>
+            )}
+
             {mode === "signup" && (
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1.5 block">Loại độc giả</label>
@@ -146,7 +190,7 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className={`text-sm rounded-lg px-4 py-2.5 ${error.includes("thành công")
+              <div className={`text-sm rounded-lg px-4 py-2.5 ${error.includes("thành công") || error.includes("Đã gửi email")
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : "bg-rose-50 text-rose-700 border border-rose-200"
                 }`}>

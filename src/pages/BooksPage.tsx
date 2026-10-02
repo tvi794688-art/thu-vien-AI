@@ -10,6 +10,7 @@ import { aiSummarizeBook } from "@/lib/ai";
 
 const CATEGORIES = ["Công nghệ", "Kinh tế", "Tâm lý học", "Văn học", "Khoa học", "Lịch sử", "Tự lực", "Giáo dục", "Khác"];
 const COVER_OPTIONS = ["blue", "green", "amber", "rose", "emerald", "violet", "cyan", "orange", "slate", "indigo"];
+const PAGE_SIZE = 12;
 
 export default function BooksPage() {
   const { profile } = useAuth();
@@ -17,6 +18,9 @@ export default function BooksPage() {
 
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -40,9 +44,12 @@ export default function BooksPage() {
   const loadBooks = useCallback(async () => {
     setLoading(true);
 
+    const from = (currentPage - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     let query = supabase
       .from("books")
-      .select("*")
+      .select("*", { count: "exact" })
       .neq("status", "archived")
       .order("created_at", { ascending: false });
 
@@ -58,28 +65,66 @@ export default function BooksPage() {
       query = query.eq("available", 0);
     }
 
-    const { data, error } = await query;
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch) {
+      query = query.or(
+        `title.ilike.%${trimmedSearch}%,author.ilike.%${trimmedSearch}%,book_code.ilike.%${trimmedSearch}%`
+      );
+    }
+
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
 
     if (error) {
-      alert(error.message);
+      alert(`Không thể tải danh sách sách: ${error.message}`);
+      setBooks([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
 
     setBooks((data || []) as Book[]);
+    setTotalCount(count ?? 0);
     setLoading(false);
-  }, [category, statusFilter]);
+  }, [category, statusFilter, currentPage, search]);
 
   useEffect(() => { loadBooks(); }, [loadBooks]);
 
-  const filtered = books.filter((b) => {
-    const q = search.toLowerCase();
-    return !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || b.book_code.toLowerCase().includes(q);
-  });
+  const filtered = books;
 
-  function openAdd() {
+  async function openAdd() {
     setEditing(null);
-    setForm({ book_code: `BV${String(books.length + 1).padStart(3, "0")}`, title: "", author: "", category: "Công nghệ", publisher: "", publish_year: "", isbn: "", quantity: "1", description: "", cover_color: "blue" });
+
+    const { data, error } = await supabase
+      .from("books")
+      .select("book_code")
+      .order("book_code", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      alert(`Không thể tạo mã sách mới: ${error.message}`);
+      return;
+    }
+
+    const lastCode = data?.[0]?.book_code || "BV000";
+    const lastNumber = parseInt(lastCode.replace(/\D/g, ""), 10) || 0;
+    const nextCode = `BV${String(lastNumber + 1).padStart(3, "0")}`;
+
+    setForm({
+      book_code: nextCode,
+      title: "",
+      author: "",
+      category: "Công nghệ",
+      publisher: "",
+      publish_year: "",
+      isbn: "",
+      quantity: "1",
+      description: "",
+      cover_color: "blue",
+    });
+
     setModalOpen(true);
   }
 
@@ -102,6 +147,10 @@ export default function BooksPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (saving) {
+      return;
+    }
 
     const quantity = Number(form.quantity);
 
@@ -141,6 +190,7 @@ export default function BooksPage() {
     };
 
     try {
+      setSaving(true);
       let savedBookId: string | null = null;
       if (editing) {
         const borrowedCopies =
@@ -211,11 +261,16 @@ export default function BooksPage() {
       await loadBooks();
     } catch (err: unknown) {
       const message =
-        err instanceof Error
-          ? err.message
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof (err as { message?: unknown }).message === "string"
+          ? (err as { message: string }).message
           : "Không thể lưu thông tin sách.";
 
       alert(`Lỗi: ${message}`);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -252,11 +307,64 @@ export default function BooksPage() {
     }
   }
 
-  function handleExport() {
+  async function handleExport() {
+    let query = supabase
+      .from("books")
+      .select("*")
+      .neq("status", "archived")
+      .order("created_at", { ascending: false });
+
+    if (category !== "all") {
+      query = query.eq("category", category);
+    }
+
+    if (statusFilter === "available") {
+      query = query.gt("available", 0);
+    }
+
+    if (statusFilter === "borrowed") {
+      query = query.eq("available", 0);
+    }
+
+    const trimmedSearch = search.trim();
+
+    if (trimmedSearch) {
+      query = query.or(
+        `title.ilike.%${trimmedSearch}%,author.ilike.%${trimmedSearch}%,book_code.ilike.%${trimmedSearch}%`
+      );
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      alert(`Không thể xuất CSV: ${error.message}`);
+      return;
+    }
+
+    const exportBooks = (data || []) as Book[];
+
     exportToCSV(
       "danh-sach-sach.csv",
-      ["Mã sách", "Tên sách", "Tác giả", "Thể loại", "NXB", "Năm XB", "Tổng số", "Còn lại"],
-      filtered.map((b) => [b.book_code, b.title, b.author, b.category, b.publisher || "", b.publish_year || "", b.quantity, b.available]),
+      [
+        "Mã sách",
+        "Tên sách",
+        "Tác giả",
+        "Thể loại",
+        "NXB",
+        "Năm XB",
+        "Tổng số",
+        "Còn lại",
+      ],
+      exportBooks.map((b) => [
+        b.book_code,
+        b.title,
+        b.author,
+        b.category,
+        b.publisher || "",
+        b.publish_year || "",
+        b.quantity,
+        b.available,
+      ])
     );
   }
 
@@ -264,7 +372,7 @@ export default function BooksPage() {
     <div>
       <PageHeader
         title="Quản lý sách"
-        subtitle={`${books.length} đầu sách trong thư viện`}
+        subtitle={`${totalCount} đầu sách trong thư viện`}
         action={isStaff && (
           <div className="flex gap-2">
             <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
@@ -284,16 +392,25 @@ export default function BooksPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setCurrentPage(1);
+              setSearch(e.target.value);
+            }}
             placeholder="Tìm theo tên, tác giả, mã sách..."
             className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <select value={category} onChange={(e) => {
+          setCurrentPage(1);
+          setCategory(e.target.value);
+        }} className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="all">Tất cả thể loại</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <select value={statusFilter} onChange={(e) => {
+          setCurrentPage(1);
+          setStatusFilter(e.target.value);
+        }} className="px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="all">Tất cả trạng thái</option>
           <option value="available">Còn sách</option>
           <option value="borrowed">Đang mượn hết</option>
@@ -346,6 +463,36 @@ export default function BooksPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {totalCount > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-6">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang trước
+          </button>
+
+          <span className="text-sm text-slate-500">
+            Trang {currentPage} / {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage((page) =>
+                Math.min(Math.ceil(totalCount / PAGE_SIZE), page + 1)
+              )
+            }
+            disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang sau
+          </button>
         </div>
       )}
 
@@ -408,8 +555,22 @@ export default function BooksPage() {
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setModalOpen(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Hủy</button>
-            <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">{editing ? "Cập nhật" : "Thêm sách"}</button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Đang lưu..." : editing ? "Cập nhật" : "Thêm sách"}
+            </button>
           </div>
         </form>
       </Modal>

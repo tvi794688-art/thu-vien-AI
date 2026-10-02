@@ -23,6 +23,20 @@ import {
   exportToCSV,
 } from "@/lib/utils";
 
+const PAGE_SIZE = 10;
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof (err as { message?: unknown }).message === "string"
+  ) {
+    return (err as { message: string }).message;
+  }
+
+  return fallback;
+}
 export default function LoansPage() {
   const { profile } = useAuth();
 
@@ -36,9 +50,11 @@ export default function LoansPage() {
 
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [borrowing, setBorrowing] = useState(false);
+  const [processingLoanId, setProcessingLoanId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     book_id: "",
@@ -240,21 +256,27 @@ export default function LoansPage() {
 
       await load();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi tạo phiếu mượn";
-
-      alert(message);
+      alert(
+        getErrorMessage(
+          err,
+          "Lỗi khi tạo phiếu mượn."
+        )
+      );
     } finally {
       setBorrowing(false);
     }
   }
 
   async function handleReturn(loan: Loan) {
+    if (processingLoanId) {
+      return;
+    }
+
     if (!confirm("Xác nhận độc giả đã trả sách?")) {
       return;
     }
+
+    setProcessingLoanId(loan.id);
 
     try {
       const { error } = await supabase.rpc("return_book", {
@@ -265,18 +287,26 @@ export default function LoansPage() {
         throw error;
       }
 
+      alert("Trả sách thành công.");
+
       await load();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi trả sách";
-
-      alert(message);
+      alert(
+        getErrorMessage(
+          err,
+          "Lỗi khi trả sách."
+        )
+      );
+    } finally {
+      setProcessingLoanId(null);
     }
   }
 
   async function handleRenew(loan: Loan) {
+    if (processingLoanId) {
+      return;
+    }
+
     const currentCount = loan.renewal_count ?? 0;
     const maxRenewals = settings?.max_renewals ?? 0;
     const renewalDays = settings?.renewal_days ?? 0;
@@ -289,6 +319,8 @@ export default function LoansPage() {
     ) {
       return;
     }
+
+    setProcessingLoanId(loan.id);
 
     try {
       const { error } = await supabase.rpc("renew_loan", {
@@ -303,12 +335,14 @@ export default function LoansPage() {
 
       await load();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi gia hạn sách";
-
-      alert(message);
+      alert(
+        getErrorMessage(
+          err,
+          "Lỗi khi gia hạn sách."
+        )
+      );
+    } finally {
+      setProcessingLoanId(null);
     }
   }
 
@@ -360,6 +394,13 @@ export default function LoansPage() {
 
   const loanPeriodDays = settings?.loan_period_days ?? 14;
 
+  const totalPages = Math.max(1, Math.ceil(loans.length / PAGE_SIZE));
+
+  const paginatedLoans = loans.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   return (
     <div>
       <PageHeader
@@ -399,7 +440,10 @@ export default function LoansPage() {
         {["all", "active", "overdue", "returned"].map((status) => (
           <button
             key={status}
-            onClick={() => setStatusFilter(status)}
+            onClick={() => {
+              setCurrentPage(1);
+              setStatusFilter(status);
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${statusFilter === status
               ? "bg-blue-600 text-white"
               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -456,7 +500,7 @@ export default function LoansPage() {
               </thead>
 
               <tbody className="divide-y divide-slate-50">
-                {loans.map((loan) => {
+                {paginatedLoans.map((loan) => {
                   const status = getLoanStatus(loan);
 
                   const daysLate = getDaysOverdue(loan.due_date);
@@ -524,16 +568,18 @@ export default function LoansPage() {
                           <div className="inline-flex items-center gap-1">
                             <button
                               onClick={() => handleRenew(loan)}
+                              disabled={processingLoanId === loan.id}
                               title="Gia hạn"
-                              className="inline-flex items-center justify-center px-2.5 h-8 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-medium transition"
+                              className="inline-flex items-center justify-center px-2.5 h-8 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Gia hạn
+                              {processingLoanId === loan.id ? "Đang xử lý..." : "Gia hạn"}
                             </button>
 
                             <button
                               onClick={() => handleReturn(loan)}
+                              disabled={processingLoanId === loan.id}
                               title="Trả sách"
-                              className="inline-flex items-center justify-center w-8 h-8 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                              className="inline-flex items-center justify-center w-8 h-8 text-emerald-600 hover:bg-emerald-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <CheckCircle2 className="w-4 h-4" />
                             </button>
@@ -546,6 +592,34 @@ export default function LoansPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {loans.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-6">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang trước
+          </button>
+
+          <span className="text-sm text-slate-500">
+            Trang {currentPage} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage((page) => Math.min(totalPages, page + 1))
+            }
+            disabled={currentPage >= totalPages}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang sau
+          </button>
         </div>
       )}
 

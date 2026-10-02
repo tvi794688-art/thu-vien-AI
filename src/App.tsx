@@ -13,46 +13,53 @@ import AIChatPage from "@/pages/AIChatPage";
 import AISummaryPage from "@/pages/AISummaryPage";
 import AIRecommendPage from "@/pages/AIRecommendPage";
 import SettingsPage from "@/pages/SettingsPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import { LoadingSpinner } from "@/components/UI";
 
 function AppContent() {
   const { session, profile, loading } = useAuth();
-const [page, setPage] = useState<PageKey>("dashboard");
+  const isResetPasswordPage =
+    window.location.pathname === "/reset-password";
+  const [page, setPage] = useState<PageKey>("dashboard");
 
-const isStaff =
-  profile?.role === "admin" || profile?.role === "librarian";
+  const isStaff =
+    profile?.role === "admin" || profile?.role === "librarian";
 
-useEffect(() => {
-  if (!profile) return;
+  useEffect(() => {
+    if (!profile) return;
 
-  const staffOnly: PageKey[] = [
-    "readers",
-    "statistics",
-    "reports",
-  ];
+    const staffOnly: PageKey[] = [
+      "readers",
+      "statistics",
+      "reports",
+    ];
 
-  const unauthorizedStaffPage =
-    !isStaff && staffOnly.includes(page);
+    const unauthorizedStaffPage =
+      !isStaff && staffOnly.includes(page);
 
-  const unauthorizedSettingsPage =
-    page === "settings" && profile.role !== "admin";
+    const unauthorizedSettingsPage =
+      page === "settings" && profile.role !== "admin";
 
-  if (unauthorizedStaffPage || unauthorizedSettingsPage) {
-    setPage("dashboard");
+    if (unauthorizedStaffPage || unauthorizedSettingsPage) {
+      setPage("dashboard");
+    }
+  }, [page, isStaff, profile]);
+
+  if (isResetPasswordPage) {
+    return <ResetPasswordPage />;
   }
-}, [page, isStaff, profile]);
 
-if (loading) {
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-      <LoadingSpinner label="Đang tải..." />
-    </div>
-  );
-}
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <LoadingSpinner label="Đang tải..." />
+      </div>
+    );
+  }
 
-if (!session || !profile) {
-  return <LoginPage />;
-}
+  if (!session || !profile) {
+    return <LoginPage />;
+  }
 
   function renderPage() {
     switch (page) {

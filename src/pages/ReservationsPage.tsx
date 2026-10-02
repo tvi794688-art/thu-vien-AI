@@ -6,6 +6,20 @@ import { PageHeader, EmptyState, LoadingSpinner, Badge } from "@/components/UI";
 import Modal from "@/components/Modal";
 import { CalendarClock, Plus, CheckCircle2, XCircle } from "lucide-react";
 import { formatDate, getCoverColor } from "@/lib/utils";
+const PAGE_SIZE = 9;
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof (err as { message?: unknown }).message === "string"
+  ) {
+    return (err as { message: string }).message;
+  }
+
+  return fallback;
+}
 
 export default function ReservationsPage() {
   const { profile } = useAuth();
@@ -13,24 +27,62 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [unavailableBooks, setUnavailableBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reserving, setReserving] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ book_id: "", note: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from("reservations")
-      .select("*, books(*), profiles(*)")
-      .order("reserved_date", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (!isStaff && profile) query = query.eq("reader_id", profile.id);
-    const { data } = await query;
-    setReservations((data || []) as unknown as Reservation[]);
-    if (!isStaff && profile) {
-      const { data: books } = await supabase.from("books").select("*").eq("available", 0).order("title");
-      setUnavailableBooks((books || []) as Book[]);
+
+    try {
+      let query = supabase
+        .from("reservations")
+        .select("*, books(*), profiles(*)")
+        .order("reserved_date", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (!isStaff && profile) {
+        query = query.eq("reader_id", profile.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      setReservations((data || []) as unknown as Reservation[]);
+
+      if (!isStaff && profile) {
+        const { data: books, error: booksError } = await supabase
+          .from("books")
+          .select("*")
+          .eq("available", 0)
+          .order("title");
+
+        if (booksError) {
+          throw booksError;
+        }
+
+        setUnavailableBooks((books || []) as Book[]);
+      } else {
+        setUnavailableBooks([]);
+      }
+    } catch (err: unknown) {
+      alert(
+        getErrorMessage(
+          err,
+          "Không thể tải dữ liệu đặt trước."
+        )
+      );
+
+      setReservations([]);
+      setUnavailableBooks([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [isStaff, profile]);
 
   useEffect(() => { load(); }, [load]);
@@ -43,10 +95,16 @@ export default function ReservationsPage() {
       return;
     }
 
+    if (reserving) {
+      return;
+    }
+
+    setReserving(true);
+
     try {
       const { error } = await supabase.rpc("create_reservation", {
         p_book_id: form.book_id,
-        p_note: form.note || null,
+        p_note: form.note.trim() || null,
       });
 
       if (error) {
@@ -60,12 +118,9 @@ export default function ReservationsPage() {
 
       await load();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi đặt trước sách";
-
-      alert(message);
+      alert(getErrorMessage(err, "Lỗi khi đặt trước sách."));
+    } finally {
+      setReserving(false);
     }
   }
 
@@ -73,6 +128,12 @@ export default function ReservationsPage() {
     res: Reservation,
     status: "fulfilled" | "cancelled"
   ) {
+    if (processingId) {
+      return;
+    }
+
+    setProcessingId(res.id);
+
     try {
       if (status === "fulfilled") {
         const { error } = await supabase.rpc("fulfill_reservation", {
@@ -98,12 +159,14 @@ export default function ReservationsPage() {
 
       await load();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi xử lý yêu cầu đặt trước";
-
-      alert(message);
+      alert(
+        getErrorMessage(
+          err,
+          "Lỗi khi xử lý yêu cầu đặt trước."
+        )
+      );
+    } finally {
+      setProcessingId(null);
     }
   }
 
@@ -112,6 +175,16 @@ export default function ReservationsPage() {
     fulfilled: { label: "Đã xử lý", color: "green" },
     cancelled: { label: "Đã hủy", color: "red" },
   };
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(reservations.length / PAGE_SIZE)
+  );
+
+  const paginatedReservations = reservations.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   return (
     <div>
@@ -127,7 +200,7 @@ export default function ReservationsPage() {
         <EmptyState icon={<CalendarClock className="w-12 h-12" />} title="Chưa có đặt trước nào" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reservations.map((res) => {
+          {paginatedReservations.map((res) => {
             const cc = getCoverColor(res.books?.cover_color || "blue");
             const st = statusMap[res.status] || statusMap.pending;
             return (
@@ -152,25 +225,55 @@ export default function ReservationsPage() {
                     {isStaff && (
                       <button
                         onClick={() => handleStatus(res, "fulfilled")}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
+                        disabled={processingId === res.id}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Duyệt
+                        {processingId === res.id ? "Đang xử lý..." : "Duyệt"}
                       </button>
                     )}
 
                     <button
                       onClick={() => handleStatus(res, "cancelled")}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+                      disabled={processingId === res.id}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <XCircle className="w-3.5 h-3.5" />
-                      Hủy
+                      {processingId === res.id ? "Đang xử lý..." : "Hủy"}
                     </button>
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {reservations.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-6">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang trước
+          </button>
+
+          <span className="text-sm text-slate-500">
+            Trang {currentPage} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage((page) => Math.min(totalPages, page + 1))
+            }
+            disabled={currentPage >= totalPages}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trang sau
+          </button>
         </div>
       )}
 
@@ -190,7 +293,13 @@ export default function ReservationsPage() {
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => setModalOpen(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Hủy</button>
-            <button type="submit" className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">Đặt trước</button>
+            <button
+              type="submit"
+              disabled={reserving}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {reserving ? "Đang đặt trước..." : "Đặt trước"}
+            </button>
           </div>
         </form>
       </Modal>

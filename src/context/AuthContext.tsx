@@ -9,11 +9,16 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
-  email: string,
-  password: string,
-  fullName: string,
-  readerType?: "student" | "teacher" | "staff" | "guest",
-) => Promise<{ error: string | null }>;
+    email: string,
+    password: string,
+    fullName: string,
+    readerType?: "student" | "teacher" | "staff" | "guest",
+  ) => Promise<{ error: string | null }>;
+
+  resetPassword: (
+    email: string,
+  ) => Promise<{ error: string | null }>;
+
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -82,6 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setProfile(null);
@@ -95,7 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        profile,
+        loading,
+        signIn,
+        signUp,
+        resetPassword,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
