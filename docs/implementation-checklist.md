@@ -115,12 +115,12 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Related DB issue(s):** DB-008
 - **Related application issue(s):** Reader creation flow incomplete; signup metadata needs trusted validation.
 - **Related FR/NFR/AC:** FR-001, FR-004; BR-001; AC-001.1–001.5, AC-003.1–003.2, AC-004.1; US-001, US-003–US-004.
-- **Expected files/components affected:** New migration/signup trigger; `src/context/AuthContext.tsx`; `src/pages/LoginPage.tsx`; `src/pages/ReadersPage.tsx`; account forms.
-- **Planned database migration if needed:** Yes, validate reader_type in signup/profile persistence.
-- **Planned source changes:** Complete required creation form/actions and validate fields; public signup always requests Reader role and active status through trusted path.
-- **Verification steps:** Test four valid reader types and invalid metadata; public signup cannot create Admin/Librarian; confirm active Reader profile and staff-specific Reader creation permissions.
+- **Expected files/components affected:** New migration/signup trigger; `src/context/AuthContext.tsx`; `src/pages/LoginPage.tsx`; `src/pages/ReadersPage.tsx`; `supabase/functions/create-reader/index.ts`; account forms.
+- **Database migration:** Completed with `20261002072512_batch8_reader_type_signup_validation.sql`.
+- **Source changes completed:** Public signup reader type is strongly typed to the four approved values; signup form validates trimmed name and password length; `handle_new_user()` validates metadata and still forces `role = reader` and `card_status = active`; ReadersPage now supports real Reader account creation with email/password; Admin/Librarian creation uses protected `create-reader` Edge Function with server-side role verification and service-role isolation.
+- **Verification completed:** Public signup tested successfully for `student`, `teacher`, `staff`, and `guest`; invalid `reader_type` was rejected and produced no profile; public signup always created `role = reader` and `card_status = active`; Admin successfully created a Reader without losing session; Librarian successfully created a Reader; Reader direct invocation of `create-reader` returned 403 and created no account; test users were removed from both `auth.users` and `public.profiles`; production build passes.
 - **Expected Git commit scope:** `feat: complete reader creation and validate reader type`
-- **Status:** Planned
+- **Status:** Completed
 
 ## Batch 9 — Controlled book deletion with history retention
 

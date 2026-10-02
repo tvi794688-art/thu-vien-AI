@@ -8,7 +8,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [readerType, setReaderType] = useState("student");
+  const [readerType, setReaderType] = useState<
+    "student" | "teacher" | "staff" | "guest"
+  >("student");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,7 +28,20 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, fullName, readerType);
+
+      if (!fullName.trim()) {
+        setError("Vui lòng nhập họ và tên");
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await signUp(
+        email.trim(),
+        password,
+        fullName.trim(),
+        readerType
+      );
+
       if (error) setError(error);
       else setError("Tạo tài khoản thành công! Vui lòng đăng nhập.");
     }
@@ -48,17 +63,15 @@ export default function LoginPage() {
           <div className="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl">
             <button
               onClick={() => setMode("signin")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                mode === "signin" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${mode === "signin" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"
+                }`}
             >
               <LogIn className="w-4 h-4" /> Đăng nhập
             </button>
             <button
               onClick={() => setMode("signup")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                mode === "signup" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${mode === "signup" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"
+                }`}
             >
               <UserPlus className="w-4 h-4" /> Đăng ký
             </button>
@@ -117,7 +130,11 @@ export default function LoginPage() {
                 <label className="text-sm font-medium text-slate-700 mb-1.5 block">Loại độc giả</label>
                 <select
                   value={readerType}
-                  onChange={(e) => setReaderType(e.target.value)}
+                  onChange={(e) =>
+                    setReaderType(
+                      e.target.value as "student" | "teacher" | "staff" | "guest"
+                    )
+                  }
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 >
                   <option value="student">Học sinh</option>
@@ -129,11 +146,10 @@ export default function LoginPage() {
             )}
 
             {error && (
-              <div className={`text-sm rounded-lg px-4 py-2.5 ${
-                error.includes("thành công")
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-rose-50 text-rose-700 border border-rose-200"
-              }`}>
+              <div className={`text-sm rounded-lg px-4 py-2.5 ${error.includes("thành công")
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-rose-50 text-rose-700 border border-rose-200"
+                }`}>
                 {error}
               </div>
             )}

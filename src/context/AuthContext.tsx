@@ -9,11 +9,11 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
-    email: string,
-    password: string,
-    fullName: string,
-    readerType?: string,
-  ) => Promise<{ error: string | null }>;
+  email: string,
+  password: string,
+  fullName: string,
+  readerType?: "student" | "teacher" | "staff" | "guest",
+) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     fullName: string,
-    readerType: string = "student",
+    readerType: "student" | "teacher" | "staff" | "guest" = "student",
   ) {
     const { error } = await supabase.auth.signUp({
       email,

@@ -15,7 +15,16 @@ export default function ReadersPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
-  const [form, setForm] = useState({ full_name: "", phone: "", reader_type: "student", card_status: "active", address: "" });
+
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    password: "",
+    phone: "",
+    reader_type: "student",
+    card_status: "active",
+    address: "",
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,29 +69,103 @@ export default function ReadersPage() {
 
   function openAdd() {
     setEditing(null);
-    setForm({ full_name: "", phone: "", reader_type: "student", card_status: "active", address: "" });
+
+    setForm({
+      full_name: "",
+      email: "",
+      password: "",
+      phone: "",
+      reader_type: "student",
+      card_status: "active",
+      address: "",
+    });
+
     setModalOpen(true);
   }
 
   function openEdit(r: Profile) {
     setEditing(r);
-    setForm({ full_name: r.full_name, phone: r.phone || "", reader_type: r.reader_type, card_status: r.card_status, address: r.address || "" });
+
+    setForm({
+      full_name: r.full_name,
+      email: r.email || "",
+      password: "",
+      phone: r.phone || "",
+      reader_type: r.reader_type,
+      card_status: r.card_status,
+      address: r.address || "",
+    });
+
     setModalOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editing) {
-      await supabase.from("profiles").update({
-        full_name: form.full_name,
-        phone: form.phone || null,
-        reader_type: form.reader_type as Profile["reader_type"],
-        card_status: form.card_status as Profile["card_status"],
-        address: form.address || null,
-      }).eq("id", editing.id);
+
+    const fullName = form.full_name.trim();
+    const email = form.email.trim().toLowerCase();
+
+    if (!fullName) {
+      alert("Vui lòng nhập họ và tên.");
+      return;
     }
+
+    if (editing) {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          phone: form.phone.trim() || null,
+          reader_type: form.reader_type as Profile["reader_type"],
+          card_status: form.card_status as Profile["card_status"],
+          address: form.address.trim() || null,
+        })
+        .eq("id", editing.id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+    } else {
+      if (!email) {
+        alert("Vui lòng nhập email.");
+        return;
+      }
+
+      if (form.password.length < 6) {
+        alert("Mật khẩu phải có ít nhất 6 ký tự.");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke(
+        "create-reader",
+        {
+          body: {
+            full_name: fullName,
+            email,
+            password: form.password,
+            phone: form.phone.trim(),
+            reader_type: form.reader_type,
+            address: form.address.trim(),
+          },
+        }
+      );
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (data?.error) {
+        alert(data.error);
+        return;
+      }
+
+      alert("Tạo độc giả thành công.");
+    }
+
     setModalOpen(false);
-    load();
+    await load();
   }
 
   function handleExport() {
@@ -174,17 +257,79 @@ export default function ReadersPage() {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Chỉnh sửa độc giả" : "Thêm độc giả"}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Chỉnh sửa độc giả" : "Thêm độc giả"}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Họ và tên *</label>
-            <input type="text" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+              Họ và tên *
+            </label>
+            <input
+              type="text"
+              value={form.full_name}
+              onChange={(e) =>
+                setForm({ ...form, full_name: e.target.value })
+              }
+              required
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
+
+          {!editing && (
+            <>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm({ ...form, email: e.target.value })
+                  }
+                  required
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                  Mật khẩu *
+                </label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Loại độc giả</label>
-              <select value={form.reader_type} onChange={(e) => setForm({ ...form, reader_type: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {Object.entries(READER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                Loại độc giả
+              </label>
+              <select
+                value={form.reader_type}
+                onChange={(e) =>
+                  setForm({ ...form, reader_type: e.target.value })
+                }
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.entries(READER_TYPES).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -192,14 +337,28 @@ export default function ReadersPage() {
               <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1.5 block">Trạng thái thẻ</label>
-              <select value={form.card_status} onChange={(e) => setForm({ ...form, card_status: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {Object.entries(CARD_STATUSES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+          {editing && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                  Trạng thái thẻ
+                </label>
+                <select
+                  value={form.card_status}
+                  onChange={(e) =>
+                    setForm({ ...form, card_status: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {Object.entries(CARD_STATUSES).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label className="text-sm font-medium text-slate-700 mb-1.5 block">Địa chỉ</label>
             <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
