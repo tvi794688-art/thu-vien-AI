@@ -141,6 +141,7 @@ export default function BooksPage() {
     };
 
     try {
+      let savedBookId: string | null = null;
       if (editing) {
         const borrowedCopies =
           editing.quantity - editing.available;
@@ -167,20 +168,43 @@ export default function BooksPage() {
           throw error;
         }
 
+        savedBookId = editing.id;
+
         alert("Cập nhật sách thành công.");
       } else {
-        const { error } = await supabase
+        const { data: newBook, error } = await supabase
           .from("books")
           .insert({
             ...payload,
             available: quantity,
-          });
+          })
+          .select("id")
+          .single();
 
         if (error) {
           throw error;
         }
 
+        savedBookId = newBook.id;
+
         alert("Thêm sách thành công.");
+      }
+
+      if (savedBookId) {
+        const { error: embeddingError } =
+          await supabase.functions.invoke("ai-library", {
+            body: {
+              action: "refresh_book_embedding",
+              bookId: savedBookId,
+            },
+          });
+
+        if (embeddingError) {
+          console.error(
+            "Không thể cập nhật embedding:",
+            embeddingError,
+          );
+        }
       }
 
       setModalOpen(false);
