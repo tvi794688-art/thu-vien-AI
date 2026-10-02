@@ -41,6 +41,7 @@ export interface Loan {
   return_date: string | null;
   status: LoanStatus | null;
   fine_amount: number | null;
+  renewal_count: number;
   created_at: string | null;
   updated_at: string | null;
   books?: Book;

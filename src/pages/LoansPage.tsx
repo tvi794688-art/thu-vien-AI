@@ -232,31 +232,67 @@ export default function LoansPage() {
   }
 
   async function handleReturn(loan: Loan) {
-    if (!confirm("Xác nhận độc giả đã trả sách?")) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase.rpc("return_book", {
-        p_loan_id: loan.id,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      await load();
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Lỗi khi trả sách";
-
-      alert(message);
-    }
+  if (!confirm("Xác nhận độc giả đã trả sách?")) {
+    return;
   }
 
-  function handleExport() {
+  try {
+    const { error } = await supabase.rpc("return_book", {
+      p_loan_id: loan.id,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    await load();
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Lỗi khi trả sách";
+
+    alert(message);
+  }
+}
+
+async function handleRenew(loan: Loan) {
+  const currentCount = loan.renewal_count ?? 0;
+  const maxRenewals = settings?.max_renewals ?? 0;
+  const renewalDays = settings?.renewal_days ?? 0;
+
+  if (
+    !confirm(
+      `Xác nhận gia hạn thêm ${renewalDays} ngày?\n` +
+        `Số lần gia hạn hiện tại: ${currentCount}/${maxRenewals}`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const { error } = await supabase.rpc("renew_loan", {
+      p_loan_id: loan.id,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    alert("Gia hạn sách thành công.");
+
+    await load();
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Lỗi khi gia hạn sách";
+
+    alert(message);
+  }
+}
+
+function handleExport() {
     exportToCSV(
       "danh-sach-phieu-muon.csv",
       [
@@ -465,19 +501,26 @@ export default function LoansPage() {
                       </td>
 
                       <td className="px-4 py-3 text-right">
-                        {isStaff &&
-                          loan.status !== "returned" && (
-                            <button
-                              onClick={() =>
-                                handleReturn(loan)
-                              }
-                              title="Trả sách"
-                              className="inline-flex items-center justify-center w-8 h-8 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                            </button>
-                          )}
-                      </td>
+  {isStaff && loan.status !== "returned" && (
+    <div className="inline-flex items-center gap-1">
+      <button
+        onClick={() => handleRenew(loan)}
+        title="Gia hạn"
+        className="inline-flex items-center justify-center px-2.5 h-8 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-medium transition"
+      >
+        Gia hạn
+      </button>
+
+      <button
+        onClick={() => handleReturn(loan)}
+        title="Trả sách"
+        className="inline-flex items-center justify-center w-8 h-8 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+      >
+        <CheckCircle2 className="w-4 h-4" />
+      </button>
+    </div>
+  )}
+</td>
                     </tr>
                   );
                 })}

@@ -75,7 +75,7 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Planned source changes:** Replace direct update with RPC; refresh data and show success/error state.
 - **Verification steps:** Eligible loan increments due date/count; reject returned, overdue, maxed-out, reservation-conflict, and unauthorized requests; attempt direct bypass.
 - **Expected Git commit scope:** `fix: enforce loan renewal rules transactionally`
-- **Status:** Planned
+- **Status:** Completed — Protected renewal RPC deployed and runtime verified. Eligible renewals extend the due date using settings.renewal_days and increment renewal_count atomically; returned, overdue, maxed-out, reservation-conflict, and unauthorized requests are rejected; direct authenticated INSERT/UPDATE/DELETE on loans is blocked; LoansPage now renews only through renew_loan() and reloads the persisted result.
 
 ## Batch 6 — Reservation lifecycle
 
