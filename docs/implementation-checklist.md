@@ -130,12 +130,13 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Related DB issue(s):** DB-009
 - **Related application issue(s):** Book deletion must give a clear blocked/archive result and preserve history.
 - **Related FR/NFR/AC:** FR-003; BR-002; AC-006.1, AC-006.4; US-006; AD-003.
-- **Expected files/components affected:** New migration or controlled database operation if required; `src/pages/BooksPage.tsx`; deletion confirmation/feedback UI.
-- **Planned database migration if needed:** Conditional. Prefer a controlled deletion that blocks borrowing loans and pending reservations and preserves historical rows. Do not cascade delete history or remove referential protection. Use an archive/inactive state only if consistent with approved requirements. If safe physical deletion is incompatible with preserving history, document the tradeoff and obtain a separate human decision before implementation.
-- **Planned source changes:** Invoke the controlled path and explain blockers or archived state; do not imply physical deletion if archived.
-- **Verification steps:** Active loan and pending reservation block removal; historical returned/cancelled/fulfilled data remains queryable; allowed removal/archive preserves history; confirm no cascading transaction loss.
+- **Expected files/components affected:** New migration/control path; `src/pages/BooksPage.tsx`; deletion confirmation/feedback UI.
+- **Human decision:** Approved archive behavior instead of physical deletion. “Remove book” now means `status = 'archived'`.
+- **Database migration:** Completed with `20261002092218_batch9_archive_book_preserve_history.sql`.
+- **Source changes completed:** `loans.book_id` now uses `ON DELETE RESTRICT`; direct DELETE on `books` is revoked from `anon` and `authenticated`; broad authenticated ALL policy was replaced with staff-only insert/update policies; protected `remove_book(uuid)` RPC blocks active/overdue loans and pending reservations, then archives the book instead of deleting it; BooksPage now calls the RPC and hides archived books from the normal catalog.
+- **Verification completed:** Remote FK inspection confirms both loan/reservation book references use RESTRICT; direct DELETE privilege checks for `anon` and `authenticated` return false; active-loan removal is blocked; pending-reservation removal is blocked; historical returned/cancelled data remains after archive; frontend blocked case shows the backend error; frontend successful removal archives the book and hides it from the list; test archive was restored to `available`; production build passes.
 - **Expected Git commit scope:** `fix: preserve circulation history in book removal`
-- **Status:** Planned
+- **Status:** Completed
 
 ## Batch 10 — Complete overdue/statistics/reporting and FIFO verification
 
