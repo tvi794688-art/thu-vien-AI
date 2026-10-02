@@ -15,47 +15,144 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => 
 
   useEffect(() => {
     async function load() {
-      const [booksRes, readersRes, loansRes, recentRes] = await Promise.all([
-        supabase.from("books").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).neq("role", "reader").neq("role", "admin").neq("role", "librarian").or("role.eq.reader"),
-        supabase.from("loans").select("id", { count: "exact", head: true }).eq("status", "borrowing"),
-        supabase.from("loans").select("*, books(*), profiles(*)").order("created_at", { ascending: false }).limit(5),
+      const today = new Date().toISOString().slice(0, 10);
+      const isStaff =
+        profile?.role === "admin" ||
+        profile?.role === "librarian";
+
+      let activeLoansQuery = supabase
+        .from("loans")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["active", "overdue"]);
+
+      let overdueLoansQuery = supabase
+        .from("loans")
+        .select("id", { count: "exact", head: true })
+        .neq("status", "returned")
+        .lt("due_date", today);
+
+      let recentLoansQuery = supabase
+        .from("loans")
+        .select("*, books(*)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (!isStaff && profile?.id) {
+        activeLoansQuery = activeLoansQuery.eq("user_id", profile.id);
+        overdueLoansQuery = overdueLoansQuery.eq("user_id", profile.id);
+        recentLoansQuery = recentLoansQuery.eq("user_id", profile.id);
+      }
+
+      const [
+        booksRes,
+        readersRes,
+        activeLoansRes,
+        overdueLoansRes,
+        recentRes,
+      ] = await Promise.all([
+        supabase
+          .from("books")
+          .select("id", { count: "exact", head: true })
+          .neq("status", "archived"),
+
+        supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("role", "reader"),
+
+        activeLoansQuery,
+
+        overdueLoansQuery,
+
+        recentLoansQuery,
       ]);
 
-      const allReaders = await supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "reader");
+      const recentLoanRows = (recentRes.data || []) as unknown as Loan[];
 
-      let overdue = 0;
-      const loans = (recentRes.data || []) as unknown as Loan[];
-      loans.forEach((l) => {
-        if (l.status === "borrowing" && getDaysOverdue(l.due_date) > 0) overdue++;
-      });
+      const recentUserIds = [
+        ...new Set(
+          recentLoanRows
+            .map((loan) => loan.user_id)
+            .filter(Boolean)
+        ),
+      ];
+
+      let recentProfiles: any[] = [];
+
+      if (recentUserIds.length > 0) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", recentUserIds);
+
+        recentProfiles = data || [];
+      }
+
+      const profileMap = new Map(
+        recentProfiles.map((reader) => [
+          reader.id,
+          reader,
+        ])
+      );
+
+      const loans = recentLoanRows.map((loan) => ({
+        ...loan,
+        profiles: profileMap.get(loan.user_id),
+      })) as Loan[];
 
       setStats({
         totalBooks: booksRes.count || 0,
-        totalReaders: allReaders.count || 0,
-        activeLoans: loansRes.count || 0,
-        overdueLoans: overdue,
+        totalReaders: readersRes.count || 0,
+        activeLoans: activeLoansRes.count || 0,
+        overdueLoans: overdueLoansRes.count || 0,
       });
+
       setRecentLoans(loans);
 
       // Popular books
-      const { data: loanBooks } = await supabase
+      let popularLoansQuery = supabase
         .from("loans")
-        .select("book_id, books(*)")
-        .limit(50);
-      const counts: Record<string, { book: Book; count: number }> = {};
+        .select("book_id, books(*)");
+
+      if (!isStaff && profile?.id) {
+        popularLoansQuery = popularLoansQuery.eq(
+          "user_id",
+          profile.id
+        );
+      }
+
+      const { data: loanBooks } = await popularLoansQuery;
+
+      const counts: Record<
+        string,
+        { book: Book; count: number }
+      > = {};
+
       (loanBooks || []).forEach((l: any) => {
-        if (l.books) {
-          if (!counts[l.book_id]) counts[l.book_id] = { book: l.books as Book, count: 0 };
-          counts[l.book_id].count++;
+        if (!l.books || !l.book_id) {
+          return;
         }
+
+        if (!counts[l.book_id]) {
+          counts[l.book_id] = {
+            book: l.books as Book,
+            count: 0,
+          };
+        }
+
+        counts[l.book_id].count++;
       });
-      setPopularBooks(Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 5));
+
+      setPopularBooks(
+        Object.values(counts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+      );
 
       setLoading(false);
     }
     load();
-  }, []);
+  }, [profile]);
 
   const isStaff = profile?.role === "admin" || profile?.role === "librarian";
 
@@ -63,13 +160,13 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => 
     { label: "Tổng số sách", value: stats.totalBooks, icon: <BookMarked className="w-5 h-5" />, color: "blue", page: "books" as PageKey },
     ...(isStaff
       ? [
-          { label: "Độc giả", value: stats.totalReaders, icon: <Users className="w-5 h-5" />, color: "emerald", page: "readers" as PageKey },
-          { label: "Đang mượn", value: stats.activeLoans, icon: <ArrowLeftRight className="w-5 h-5" />, color: "violet", page: "loans" as PageKey },
-          { label: "Quá hạn", value: stats.overdueLoans, icon: <AlertTriangle className="w-5 h-5" />, color: "rose", page: "loans" as PageKey },
-        ]
+        { label: "Độc giả", value: stats.totalReaders, icon: <Users className="w-5 h-5" />, color: "emerald", page: "readers" as PageKey },
+        { label: "Đang mượn", value: stats.activeLoans, icon: <ArrowLeftRight className="w-5 h-5" />, color: "violet", page: "loans" as PageKey },
+        { label: "Quá hạn", value: stats.overdueLoans, icon: <AlertTriangle className="w-5 h-5" />, color: "rose", page: "loans" as PageKey },
+      ]
       : [
-          { label: "Đang mượn", value: stats.activeLoans, icon: <ArrowLeftRight className="w-5 h-5" />, color: "violet", page: "loans" as PageKey },
-        ]),
+        { label: "Đang mượn", value: stats.activeLoans, icon: <ArrowLeftRight className="w-5 h-5" />, color: "violet", page: "loans" as PageKey },
+      ]),
   ];
 
   const colorMap: Record<string, string> = {
@@ -136,7 +233,9 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => 
             <div className="space-y-3">
               {recentLoans.map((loan) => {
                 const cc = getCoverColor(loan.books?.cover_color || "blue");
-                const overdue = loan.status === "borrowing" && getDaysOverdue(loan.due_date) > 0;
+                const overdue =
+                  loan.status !== "returned" &&
+                  getDaysOverdue(loan.due_date) > 0;
                 return (
                   <div key={loan.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition">
                     <div className={`w-10 h-10 rounded-lg ${cc.bg} ${cc.text} flex items-center justify-center font-bold text-sm flex-shrink-0`}>
@@ -146,10 +245,9 @@ export default function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => 
                       <p className="text-sm font-medium text-slate-800 truncate">{loan.books?.title}</p>
                       <p className="text-xs text-slate-500">{loan.profiles?.full_name} • {formatDate(loan.borrow_date)}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${
-                      loan.status === "returned" ? "bg-emerald-100 text-emerald-700" :
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${loan.status === "returned" ? "bg-emerald-100 text-emerald-700" :
                       overdue ? "bg-rose-100 text-rose-700" : "bg-blue-100 text-blue-700"
-                    }`}>
+                      }`}>
                       {loan.status === "returned" ? "Đã trả" : overdue ? "Quá hạn" : "Đang mượn"}
                     </span>
                   </div>

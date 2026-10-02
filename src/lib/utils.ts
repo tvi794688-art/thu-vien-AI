@@ -14,13 +14,29 @@ export function daysBetween(start: string, end: string): number {
   return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function isOverdue(dueDate: string): boolean {
-  return new Date(dueDate) < new Date() && new Date(dueDate).toDateString() !== new Date().toDateString();
+export function getDaysOverdue(dueDate: string): number {
+  if (!dueDate) return 0;
+
+  const [year, month, day] = dueDate.split("-").map(Number);
+
+  const due = Date.UTC(year, month - 1, day);
+
+  const now = new Date();
+  const today = Date.UTC(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+
+  const diff = Math.floor(
+    (today - due) / (1000 * 60 * 60 * 24)
+  );
+
+  return Math.max(0, diff);
 }
 
-export function getDaysOverdue(dueDate: string): number {
-  if (!isOverdue(dueDate)) return 0;
-  return daysBetween(dueDate, new Date().toISOString());
+export function isOverdue(dueDate: string): boolean {
+  return getDaysOverdue(dueDate) > 0;
 }
 
 export function exportToCSV(filename: string, headers: string[], rows: (string | number)[][]) {

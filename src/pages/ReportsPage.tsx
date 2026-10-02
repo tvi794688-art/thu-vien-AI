@@ -22,46 +22,64 @@ export default function ReportsPage() {
   useEffect(() => {
     async function load() {
       const [b, l, r, f, s] = await Promise.all([
-  supabase
-    .from("books")
-    .select("*")
-    .order("title"),
+        supabase
+          .from("books")
+          .select("*")
+          .neq("status", "archived")
+          .order("title"),
 
-  supabase
-    .from("loans")
-    .select("*, books(*)")
-    .order("created_at", { ascending: false }),
+        supabase
+          .from("loans")
+          .select("*, books(*)")
+          .order("created_at", { ascending: false }),
 
-  supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "reader")
-    .order("full_name"),
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "reader")
+          .order("full_name"),
 
-  supabase
-    .from("fines")
-    .select("*, loans(*, books(*)), profiles(*)")
-    .order("created_at", { ascending: false }),
+        supabase
+          .from("fines")
+          .select("*, loans(*, books(*)), profiles(*)")
+          .order("created_at", { ascending: false }),
 
-  supabase
-    .from("settings")
-    .select("*")
-    .eq("id", 1)
-    .maybeSingle(),
-]);
+        supabase
+          .from("settings")
+          .select("*")
+          .eq("id", 1)
+          .maybeSingle(),
+      ]);
+
+      const readerMap = new Map(
+        ((r.data || []) as Profile[]).map((reader) => [
+          reader.id,
+          reader,
+        ])
+      );
+
+      const hydratedLoans = ((l.data || []) as unknown as Loan[]).map((loan) => ({
+        ...loan,
+        profiles: loan.user_id
+          ? readerMap.get(loan.user_id)
+          : undefined,
+      }));
+
       setBooks((b.data || []) as Book[]);
-setLoans((l.data || []) as unknown as Loan[]);
-setReaders((r.data || []) as Profile[]);
-setFines((f.data || []) as unknown as Fine[]);
-setSettings(s.data as LibrarySettings | null);
-setLoading(false);
+      setLoans(hydratedLoans);
+      setReaders((r.data || []) as Profile[]);
+      setFines((f.data || []) as unknown as Fine[]);
+      setSettings(s.data as LibrarySettings | null);
+      setLoading(false);
     }
     load();
   }, []);
 
   if (loading) return <LoadingSpinner label="Đang tải báo cáo..." />;
   const finePerDay = settings?.fine_per_day ?? 0;
-  const overdueCount = loans.filter((l) => l.status === "active" && getDaysOverdue(l.due_date) > 0).length;
+  const overdueCount = loans.filter(
+    (l) => l.status !== "returned" && getDaysOverdue(l.due_date) > 0
+  ).length;
   const totalFines = fines.filter((f) => !f.paid).reduce((sum, f) => sum + f.amount, 0);
 
   const reportCards = [
@@ -83,14 +101,14 @@ setLoading(false);
       onExport: () => exportToCSV("bao-cao-phieu-muon.csv",
         ["Độc giả", "Sách", "Ngày mượn", "Hạn trả", "Ngày trả", "Trạng thái", "Gia hạn"],
         loans.map((l) => [
-  l.profiles?.full_name || "",
-  l.books?.title || "",
-  l.borrow_date ? formatDate(l.borrow_date) : "—",
-  formatDate(l.due_date),
-  l.return_date ? formatDate(l.return_date) : "—",
-  l.status || "",
-  l.renewal_count,
-]),
+          l.profiles?.full_name || "",
+          l.books?.title || "",
+          l.borrow_date ? formatDate(l.borrow_date) : "—",
+          formatDate(l.due_date),
+          l.return_date ? formatDate(l.return_date) : "—",
+          l.status || "",
+          l.renewal_count,
+        ]),
       ),
     },
     {
@@ -110,10 +128,11 @@ setLoading(false);
       color: "rose",
       onExport: () => exportToCSV("bao-cao-sach-qua-han.csv",
         ["Độc giả", "Sách", "Hạn trả", "Số ngày trễ", "Tiền phạt dự kiến"],
-        loans.filter((l) => l.status === "active" && getDaysOverdue(l.due_date) > 0).map((l) => {
-          const days = getDaysOverdue(l.due_date);
-          return [l.profiles?.full_name || "", l.books?.title || "", formatDate(l.due_date), days, formatCurrency(days * finePerDay)];
-        }),
+        loans
+          .filter((l) => l.status !== "returned" && getDaysOverdue(l.due_date) > 0).map((l) => {
+            const days = getDaysOverdue(l.due_date);
+            return [l.profiles?.full_name || "", l.books?.title || "", formatDate(l.due_date), days, formatCurrency(days * finePerDay)];
+          }),
       ),
     },
     {
@@ -136,7 +155,13 @@ setLoading(false);
         [
           ["Tổng số sách", books.length, `Tổng ${books.reduce((s, b) => s + b.quantity, 0)} bản`],
           ["Sách còn", books.reduce((s, b) => s + b.available, 0), ""],
-          ["Sách đang mượn", loans.filter((l) => l.status === "active").length, ""],
+          [
+            "Sách đang mượn",
+            loans.filter(
+              (l) => l.status === "active" || l.status === "overdue"
+            ).length,
+            "",
+          ],
           ["Sách quá hạn", overdueCount, ""],
           ["Tổng độc giả", readers.length, ""],
           ["Phiếu mượn", loans.length, ""],
@@ -163,7 +188,13 @@ setLoading(false);
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Tổng sách", value: books.length, color: "text-blue-600" },
-          { label: "Đang mượn", value: loans.filter((l) => l.status === "active").length, color: "text-violet-600" },
+          {
+            label: "Đang mượn",
+            value: loans.filter(
+              (l) => l.status === "active" || l.status === "overdue"
+            ).length,
+            color: "text-violet-600",
+          },
           { label: "Quá hạn", value: overdueCount, color: "text-rose-600" },
           { label: "Phạt chưa thu", value: formatCurrency(totalFines), color: "text-amber-600" },
         ].map((s) => (

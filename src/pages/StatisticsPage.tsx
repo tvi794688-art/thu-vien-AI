@@ -29,8 +29,7 @@ export default function StatisticsPage() {
       ] = await Promise.all([
         supabase
           .from("loans")
-          .select("*, books(*)")
-          .limit(100),
+          .select("*, books(*)"),
 
         supabase
           .from("fines")
@@ -39,7 +38,8 @@ export default function StatisticsPage() {
 
         supabase
           .from("books")
-          .select("*"),
+          .select("*")
+          .neq("status", "archived"),
 
         supabase
           .from("profiles")
@@ -64,6 +64,13 @@ export default function StatisticsPage() {
           reader,
         ])
       );
+
+      const hydratedLoans = (loans || []).map((loan: any) => ({
+        ...loan,
+        profiles: loan.user_id
+          ? readersById.get(loan.user_id)
+          : undefined,
+      }));
 
       const readerCounts: Record<
         string,
@@ -98,9 +105,9 @@ export default function StatisticsPage() {
       );
 
       // Overdue
-      const overdue = (loans || []).filter(
+      const overdue = hydratedLoans.filter(
         (l: any) =>
-          l.status === "active" &&
+          l.status !== "returned" &&
           getDaysOverdue(l.due_date) > 0
       ) as Loan[];
 

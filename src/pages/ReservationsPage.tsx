@@ -19,9 +19,10 @@ export default function ReservationsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
-  .from("reservations")
-  .select("*, books(*), profiles(*)")
-  .order("created_at", { ascending: true });
+      .from("reservations")
+      .select("*, books(*), profiles(*)")
+      .order("reserved_date", { ascending: true })
+      .order("created_at", { ascending: true });
     if (!isStaff && profile) query = query.eq("reader_id", profile.id);
     const { data } = await query;
     setReservations((data || []) as unknown as Reservation[]);
@@ -35,76 +36,76 @@ export default function ReservationsPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleReserve(e: React.FormEvent) {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!form.book_id) {
-    alert("Vui lòng chọn sách muốn đặt trước.");
-    return;
-  }
-
-  try {
-    const { error } = await supabase.rpc("create_reservation", {
-      p_book_id: form.book_id,
-      p_note: form.note || null,
-    });
-
-    if (error) {
-      throw error;
+    if (!form.book_id) {
+      alert("Vui lòng chọn sách muốn đặt trước.");
+      return;
     }
 
-    alert("Đặt trước sách thành công.");
+    try {
+      const { error } = await supabase.rpc("create_reservation", {
+        p_book_id: form.book_id,
+        p_note: form.note || null,
+      });
 
-    setModalOpen(false);
-    setForm({ book_id: "", note: "" });
+      if (error) {
+        throw error;
+      }
 
-    await load();
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Lỗi khi đặt trước sách";
+      alert("Đặt trước sách thành công.");
 
-    alert(message);
+      setModalOpen(false);
+      setForm({ book_id: "", note: "" });
+
+      await load();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Lỗi khi đặt trước sách";
+
+      alert(message);
+    }
   }
-}
 
   async function handleStatus(
-  res: Reservation,
-  status: "fulfilled" | "cancelled"
-) {
-  try {
-    if (status === "fulfilled") {
-      const { error } = await supabase.rpc("fulfill_reservation", {
-        p_reservation_id: res.id,
-      });
+    res: Reservation,
+    status: "fulfilled" | "cancelled"
+  ) {
+    try {
+      if (status === "fulfilled") {
+        const { error } = await supabase.rpc("fulfill_reservation", {
+          p_reservation_id: res.id,
+        });
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+
+        alert("Đã xử lý đặt trước và tạo phiếu mượn thành công.");
+      } else {
+        const { error } = await supabase.rpc("cancel_reservation", {
+          p_reservation_id: res.id,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        alert("Đã hủy yêu cầu đặt trước.");
       }
 
-      alert("Đã xử lý đặt trước và tạo phiếu mượn thành công.");
-    } else {
-      const { error } = await supabase.rpc("cancel_reservation", {
-        p_reservation_id: res.id,
-      });
+      await load();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Lỗi khi xử lý yêu cầu đặt trước";
 
-      if (error) {
-        throw error;
-      }
-
-      alert("Đã hủy yêu cầu đặt trước.");
+      alert(message);
     }
-
-    await load();
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Lỗi khi xử lý yêu cầu đặt trước";
-
-    alert(message);
   }
-}
 
   const statusMap: Record<string, { label: string; color: string }> = {
     pending: { label: "Chờ duyệt", color: "amber" },
@@ -147,26 +148,26 @@ export default function ReservationsPage() {
                   {res.note && <p>Ghi chú: {res.note}</p>}
                 </div>
                 {res.status === "pending" && (
-  <div className="flex gap-2 pt-3 border-t border-slate-50">
-    {isStaff && (
-      <button
-        onClick={() => handleStatus(res, "fulfilled")}
-        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
-      >
-        <CheckCircle2 className="w-3.5 h-3.5" />
-        Duyệt
-      </button>
-    )}
+                  <div className="flex gap-2 pt-3 border-t border-slate-50">
+                    {isStaff && (
+                      <button
+                        onClick={() => handleStatus(res, "fulfilled")}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Duyệt
+                      </button>
+                    )}
 
-    <button
-      onClick={() => handleStatus(res, "cancelled")}
-      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
-    >
-      <XCircle className="w-3.5 h-3.5" />
-      Hủy
-    </button>
-  </div>
-)}
+                    <button
+                      onClick={() => handleStatus(res, "cancelled")}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      Hủy
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
