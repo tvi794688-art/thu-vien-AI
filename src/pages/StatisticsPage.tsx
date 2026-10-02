@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import type { Book, Profile, Loan, Fine } from "@/types";
 import { PageHeader, LoadingSpinner, EmptyState, Badge } from "@/components/UI";
 import { TrendingUp, Users, AlertTriangle, BarChart3 } from "lucide-react";
 import { formatDate, getDaysOverdue, formatCurrency, getCoverColor } from "@/lib/utils";
 
 export default function StatisticsPage() {
+  const { profile } = useAuth();
+
+  const isStaff =
+    profile?.role === "admin" ||
+    profile?.role === "librarian";
   const [loading, setLoading] = useState(true);
   const [popularBooks, setPopularBooks] = useState<{ book: Book; count: number }[]>([]);
   const [activeReaders, setActiveReaders] = useState<{ reader: Profile; count: number }[]>([]);
@@ -15,10 +21,30 @@ export default function StatisticsPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: loans }, { data: fines }, { data: books }] = await Promise.all([
-        supabase.from("loans").select("*, books(*), profiles(*)").limit(100),
-        supabase.from("fines").select("*, loans(*), profiles(*)").eq("paid", false),
-        supabase.from("books").select("*"),
+      const [
+        { data: loans },
+        { data: fines },
+        { data: books },
+        { data: readers },
+      ] = await Promise.all([
+        supabase
+          .from("loans")
+          .select("*, books(*)")
+          .limit(100),
+
+        supabase
+          .from("fines")
+          .select("*, loans(*, books(*)), profiles(*)")
+          .eq("paid", false),
+
+        supabase
+          .from("books")
+          .select("*"),
+
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "reader"),
       ]);
 
       // Popular books
@@ -32,17 +58,52 @@ export default function StatisticsPage() {
       setPopularBooks(Object.values(bookCounts).sort((a, b) => b.count - a.count).slice(0, 10));
 
       // Active readers
-      const readerCounts: Record<string, { reader: Profile; count: number }> = {};
+      const readersById = new Map(
+        ((readers || []) as Profile[]).map((reader) => [
+          reader.id,
+          reader,
+        ])
+      );
+
+      const readerCounts: Record<
+        string,
+        { reader: Profile; count: number }
+      > = {};
+
       (loans || []).forEach((l: any) => {
-        if (l.profiles) {
-          if (!readerCounts[l.reader_id]) readerCounts[l.reader_id] = { reader: l.profiles as Profile, count: 0 };
-          readerCounts[l.reader_id].count++;
+        if (!l.user_id) {
+          return;
         }
+
+        const reader = readersById.get(l.user_id);
+
+        if (!reader) {
+          return;
+        }
+
+        if (!readerCounts[l.user_id]) {
+          readerCounts[l.user_id] = {
+            reader,
+            count: 0,
+          };
+        }
+
+        readerCounts[l.user_id].count++;
       });
-      setActiveReaders(Object.values(readerCounts).sort((a, b) => b.count - a.count).slice(0, 10));
+
+      setActiveReaders(
+        Object.values(readerCounts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10)
+      );
 
       // Overdue
-      const overdue = (loans || []).filter((l: any) => l.status === "borrowing" && getDaysOverdue(l.due_date) > 0) as Loan[];
+      const overdue = (loans || []).filter(
+        (l: any) =>
+          l.status === "active" &&
+          getDaysOverdue(l.due_date) > 0
+      ) as Loan[];
+
       setOverdueLoans(overdue);
       setUnpaidFines((fines || []) as unknown as Fine[]);
 
@@ -55,8 +116,26 @@ export default function StatisticsPage() {
 
       setLoading(false);
     }
+
     load();
   }, []);
+
+  async function handleMarkFinePaid(fineId: string) {
+    if (!isStaff) return;
+
+    const { error } = await supabase.rpc("mark_fine_paid", {
+      p_fine_id: fineId,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setUnpaidFines((current) =>
+      current.filter((fine) => fine.id !== fineId)
+    );
+  }
 
   if (loading) return <LoadingSpinner label="Đang thống kê..." />;
 
@@ -174,25 +253,67 @@ export default function StatisticsPage() {
       {unpaidFines.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-100 p-5">
           <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-amber-500" /> Phạt chưa thanh toán ({unpaidFines.length})
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            Phạt chưa thanh toán ({unpaidFines.length})
           </h3>
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Độc giả</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Sách</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Số ngày trễ</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Tiền phạt</th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                    Độc giả
+                  </th>
+
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                    Sách
+                  </th>
+
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                    Số ngày trễ
+                  </th>
+
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                    Tiền phạt
+                  </th>
+
+                  {isStaff && (
+                    <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                      Thao tác
+                    </th>
+                  )}
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-50">
                 {unpaidFines.map((fine) => (
                   <tr key={fine.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-sm text-slate-700">{fine.profiles?.full_name}</td>
-                    <td className="px-4 py-2 text-sm text-slate-700">{fine.loans?.books?.title || "—"}</td>
-                    <td className="px-4 py-2 text-sm text-slate-600">{fine.days_overdue} ngày</td>
-                    <td className="px-4 py-2 text-sm font-medium text-rose-600">{formatCurrency(fine.amount)}</td>
+                    <td className="px-4 py-2 text-sm text-slate-700">
+                      {fine.profiles?.full_name}
+                    </td>
+
+                    <td className="px-4 py-2 text-sm text-slate-700">
+                      {fine.loans?.books?.title || "—"}
+                    </td>
+
+                    <td className="px-4 py-2 text-sm text-slate-600">
+                      {fine.days_overdue} ngày
+                    </td>
+
+                    <td className="px-4 py-2 text-sm font-medium text-rose-600">
+                      {formatCurrency(fine.amount)}
+                    </td>
+
+                    {isStaff && (
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => handleMarkFinePaid(fine.id)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+                        >
+                          Đã thanh toán
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -200,6 +321,7 @@ export default function StatisticsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

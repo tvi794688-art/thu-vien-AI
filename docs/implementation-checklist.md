@@ -101,11 +101,11 @@ Each batch is planned as a small implementation unit and a separate Git commit. 
 - **Related application issue(s):** Fine display/reporting fallback inconsistency; fine payment flow incomplete.
 - **Related FR/NFR/AC:** FR-007, FR-010, FR-013; BR-007; AC-010.1–010.5, AC-014.1–014.2, AC-017.2–017.4; US-010, US-014, US-017; AD-003, AD-008.
 - **Expected files/components affected:** New migration; return/fine RPC; `src/pages/LoansPage.tsx`; `src/pages/StatisticsPage.tsx`; `src/pages/ReportsPage.tsx`; fine components/types.
-- **Planned database migration if needed:** Yes, guarantee/configure required settings behavior and add approved fine integrity constraints/payment path protections.
-- **Planned source changes:** Add authorized paid-state action, Reader own-fine presentation, use `settings.fine_per_day` for estimates and summaries, and surface safe outcomes.
-- **Verification steps:** Late and on-time return calculations; missing settings fails clearly; duplicate/inconsistent fine rejection; Reader ownership; staff payment permission; compare loan display and report estimate against configured rate.
+- **Database migration:** Completed with `20261002051914_batch7_fine_consistency_payment.sql`.
+- **Source changes completed:** Added protected staff-only fine payment RPC; updated late-return fine creation to require configured `settings.fine_per_day` with no hard-coded fallback; added fine integrity protections; updated Loans/Reports/Statistics UI to use configured fine rate; added staff payment action; corrected legacy loan status/profile field usage in statistics; preserved Reader-own-fine visibility through RLS.
+- **Verification completed:** On-time return creates no fine; overdue return calculates fine as overdue days × configured rate; missing settings fails clearly; duplicate fine per loan is rejected; staff can mark fine paid; Reader cannot mark fine paid; Reader sees only own fine rows through RLS; direct authenticated fine writes are blocked; UI payment flow verified; test fine rows cleaned up; production build passes.
 - **Expected Git commit scope:** `fix: use configured fine rate and complete fine payments`
-- **Status:** Planned
+- **Status:** Completed
 
 ## Batch 8 — Reader type validation and creation
 

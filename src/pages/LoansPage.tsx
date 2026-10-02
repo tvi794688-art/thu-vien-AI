@@ -445,7 +445,7 @@ function handleExport() {
                   const calculatedFine =
                     daysLate > 0
                       ? daysLate *
-                        (settings?.fine_per_day ?? 5000)
+                        (settings?.fine_per_day ?? 0)
                       : 0;
 
                   return (
