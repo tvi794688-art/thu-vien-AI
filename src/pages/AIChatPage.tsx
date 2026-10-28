@@ -34,39 +34,49 @@ export default function AIChatPage() {
     try {
       const res = await aiSearchBooks(query, messages);
       setMessages((prev) => [...prev, { role: "assistant", content: res.response }]);
-    } catch (err: any) {
-      setMessages((prev) => [...prev, { role: "assistant", content: `Xin lỗi, đã có lỗi: ${err.message}. Vui lòng thử lại.` }]);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setMessages((prev) => [...prev, { role: "assistant", content: `Xin lỗi, đã có lỗi: ${message}. Vui lòng thử lại.` }]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-gradient-to-r from-violet-600 to-blue-600 rounded-2xl p-6 text-white mb-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="relative flex items-center gap-3">
-          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-            <Bot className="w-6 h-6" />
+      {/* Header Banner */}
+      <div className="bg-gradient-to-br from-cream-100 via-butter-100/60 to-cream-200/50 border border-cream-300 rounded-3xl p-6 text-charcoal-900 mb-6 relative overflow-hidden shadow-warm">
+        <div className="absolute top-0 right-0 w-60 h-60 bg-butter/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="relative flex items-center gap-4">
+          <div className="w-13 h-13 p-3 bg-white border border-butter-300 rounded-2xl flex items-center justify-center text-butter-700 shadow-warm-xs">
+            <Bot className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">AI Tra cứu sách</h1>
-            <p className="text-sm text-violet-100">Hỏi bằng ngôn ngữ tự nhiên, AI gợi ý sách phù hợp</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-charcoal-900">AI Tra Cứu Sách Thông Minh</h1>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-butter/25 text-charcoal-900 border border-butter-300">
+                Gemini Pro
+              </span>
+            </div>
+            <p className="text-sm text-charcoal-600 mt-1">Trợ lý thủ thư số hỏi đáp bằng ngôn ngữ tự nhiên và gợi ý tài liệu chính xác</p>
           </div>
         </div>
       </div>
 
       {/* Chat area */}
-      <div className="bg-white rounded-2xl border border-slate-100 flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
+      <div className="bg-white rounded-3xl border border-cream-300 shadow-warm flex flex-col overflow-hidden" style={{ height: "calc(100vh - 280px)", minHeight: "420px" }}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 bg-ivory/60">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                msg.role === "user" ? "bg-blue-100 text-blue-600" : "bg-violet-100 text-violet-600"
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-warm-xs ${
+                msg.role === "user" ? "bg-butter border border-butter-300 text-charcoal-900" : "bg-white border border-cream-300 text-butter-700"
               }`}>
                 {msg.role === "user" ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
               </div>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-warm-xs ${
+                msg.role === "user"
+                  ? "bg-butter text-charcoal-900 font-semibold border border-butter-300"
+                  : "bg-white border border-cream-300 text-charcoal-900"
               }`}>
                 <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
               </div>
@@ -74,14 +84,14 @@ export default function AIChatPage() {
           ))}
           {loading && (
             <div className="flex gap-3">
-              <div className="w-9 h-9 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-white border border-cream-300 text-butter-700 flex items-center justify-center flex-shrink-0 shadow-warm-xs">
                 <Bot className="w-5 h-5" />
               </div>
-              <div className="bg-slate-100 rounded-2xl px-4 py-3">
+              <div className="bg-white border border-cream-300 rounded-2xl px-4 py-3 shadow-warm-xs flex items-center">
                 <div className="flex gap-1.5">
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-violet-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <span className="w-2 h-2 bg-butter-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 bg-sage-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 bg-cream-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               </div>
             </div>
@@ -90,11 +100,17 @@ export default function AIChatPage() {
 
         {/* Suggested questions */}
         {messages.length <= 1 && (
-          <div className="px-4 lg:px-6 pb-3">
-            <p className="text-xs text-slate-400 mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Gợi ý câu hỏi:</p>
+          <div className="px-4 lg:px-6 py-3 border-t border-cream-200 bg-white">
+            <p className="text-xs font-bold text-charcoal-600 mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-butter-700" /> Gợi ý câu hỏi phổ biến:
+            </p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_QUESTIONS.map((q) => (
-                <button key={q} onClick={() => handleSend(q)} className="text-xs px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-full transition border border-violet-100">
+                <button
+                  key={q}
+                  onClick={() => handleSend(q)}
+                  className="text-xs px-3.5 py-1.5 bg-cream-100 hover:bg-butter/25 text-charcoal-800 hover:text-charcoal-900 rounded-xl transition border border-cream-200 font-medium shadow-warm-xs"
+                >
                   {q}
                 </button>
               ))}
@@ -103,18 +119,22 @@ export default function AIChatPage() {
         )}
 
         {/* Input */}
-        <div className="border-t border-slate-100 p-4">
-          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
+        <div className="border-t border-cream-200 p-4 bg-white">
+          <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2.5">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Nhập câu hỏi về sách..."
+              placeholder="Nhập câu hỏi tìm kiếm hoặc nhờ AI tư vấn tài liệu..."
               disabled={loading}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-cream-50/60 border border-cream-300 rounded-xl text-sm focus:outline-none focus:border-butter focus:ring-2 focus:ring-butter/30 disabled:opacity-50 text-charcoal-900 placeholder-charcoal-400"
             />
-            <button type="submit" disabled={loading || !input.trim()} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
-              <Send className="w-4 h-4" /> Gửi
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="px-5 py-2.5 bg-butter hover:bg-butter-400 border border-butter-300 text-charcoal-900 rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center gap-2 shadow-warm-sm hover:shadow-warm"
+            >
+              <Send className="w-4 h-4 text-charcoal-900" /> Gửi câu hỏi
             </button>
           </form>
         </div>

@@ -182,40 +182,78 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <PageHeader title="Báo cáo & Xuất dữ liệu" subtitle="Xuất báo cáo thư viện ra file CSV" />
+      <PageHeader
+        title="Báo cáo & Xuất dữ liệu"
+        subtitle="Xuất bản các bộ dữ liệu lưu trữ và thống kê nghiệp vụ dưới định dạng CSV"
+      />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {[
-          { label: "Tổng sách", value: books.length, color: "text-blue-600" },
+          {
+            label: "Tổng ấn phẩm",
+            value: books.length,
+            note: `${books.reduce((s, b) => s + b.quantity, 0)} bản sách`,
+          },
           {
             label: "Đang mượn",
             value: loans.filter(
               (l) => l.status === "active" || l.status === "overdue"
             ).length,
-            color: "text-violet-600",
+            note: "Lượt mượn hiện hành",
           },
-          { label: "Quá hạn", value: overdueCount, color: "text-rose-600" },
-          { label: "Phạt chưa thu", value: formatCurrency(totalFines), color: "text-amber-600" },
+          {
+            label: "Sách quá hạn",
+            value: overdueCount,
+            note: "Cần gửi nhắc nhở",
+          },
+          {
+            label: "Phạt chưa thu",
+            value: formatCurrency(totalFines),
+            note: `${fines.filter((f) => !f.paid).length} khoản tồn đọng`,
+          },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-slate-100 p-5">
-            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-sm text-slate-500 mt-1">{s.label}</p>
+          <div
+            key={s.label}
+            className="bg-white rounded-3xl border border-cream-300 p-5 shadow-warm hover:shadow-warm-md transition-all"
+          >
+            <p className="text-xs font-bold uppercase tracking-wider text-charcoal-500">
+              {s.label}
+            </p>
+            <p className="text-2xl lg:text-3xl font-extrabold text-charcoal-900 mt-1.5">
+              {s.value}
+            </p>
+            <p className="text-xs text-charcoal-500 mt-1 font-medium">
+              {s.note}
+            </p>
           </div>
         ))}
       </div>
 
       {/* Export cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {reportCards.map((card) => (
-          <div key={card.title} className="bg-white rounded-xl border border-slate-100 p-5 hover:shadow-lg transition group">
-            <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${colorMap[card.color]} text-white mb-4 group-hover:scale-110 transition`}>
-              {card.icon}
+          <div
+            key={card.title}
+            className="bg-white rounded-3xl border border-cream-300 p-6 shadow-warm hover:shadow-warm-md hover:border-butter-400 transition-all duration-300 group flex flex-col justify-between"
+          >
+            <div>
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-cream-100 text-butter-700 border border-cream-300 shadow-warm-xs mb-4 group-hover:scale-105 transition-all">
+                {card.icon}
+              </div>
+              <h3 className="font-bold text-charcoal-900 text-base mb-1">
+                {card.title}
+              </h3>
+              <p className="text-xs text-charcoal-500 mb-5 font-medium">
+                {card.desc}
+              </p>
             </div>
-            <h3 className="font-semibold text-slate-800 mb-1">{card.title}</h3>
-            <p className="text-sm text-slate-500 mb-4">{card.desc}</p>
-            <button onClick={card.onExport} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">
-              <Download className="w-4 h-4" /> Xuất CSV
+            <button
+              onClick={card.onExport}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-butter text-charcoal-800 hover:text-charcoal-900 border border-cream-300 hover:border-butter-400 rounded-xl text-sm font-bold shadow-warm-xs transition-all"
+            >
+              <Download className="w-4 h-4 text-butter-700" />
+              Xuất tệp CSV
             </button>
           </div>
         ))}

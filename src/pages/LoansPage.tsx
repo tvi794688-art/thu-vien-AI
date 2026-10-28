@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import type { Book, Profile, Loan, LibrarySettings } from "@/types";
+import type { Book, Profile, Loan, Fine, LibrarySettings } from "@/types";
 import {
   PageHeader,
   EmptyState,
@@ -44,6 +44,7 @@ export default function LoansPage() {
     profile?.role === "admin" || profile?.role === "librarian";
 
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [fines, setFines] = useState<Fine[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [readers, setReaders] = useState<Profile[]>([]);
   const [settings, setSettings] = useState<LibrarySettings | null>(null);
@@ -95,7 +96,7 @@ export default function LoansPage() {
 
       if (statusFilter === "active") {
         query = query
-          .eq("status", "active")
+          .in("status", ["active", "borrowing"])
           .gte("due_date", today);
       }
 
@@ -145,6 +146,21 @@ export default function LoansPage() {
       }));
 
       setLoans(hydratedLoans);
+
+      // Load fines (Reader sees own fines, Staff sees all)
+      let finesQuery = supabase
+        .from("fines")
+        .select("*, loans(*, books(*))")
+        .order("created_at", { ascending: false });
+
+      if (!isStaff && profile) {
+        finesQuery = finesQuery.eq("reader_id", profile.id);
+      }
+
+      const { data: fineData, error: fineError } = await finesQuery;
+      if (!fineError && fineData) {
+        setFines(fineData as unknown as Fine[]);
+      }
 
       // Settings được phép đọc bởi authenticated users
       const { data: settingsData, error: settingsError } = await supabase
@@ -372,7 +388,7 @@ export default function LoansPage() {
     if (loan.status === "returned") {
       return {
         label: "Đã trả",
-        color: "green",
+        color: "sage",
       };
     }
 
@@ -382,19 +398,30 @@ export default function LoansPage() {
     ) {
       return {
         label: "Quá hạn",
-        color: "red",
+        color: "terracotta",
       };
     }
 
     return {
       label: "Đang mượn",
-      color: "blue",
+      color: "butter",
     };
   }
 
   const loanPeriodDays = settings?.loan_period_days ?? 14;
 
   const totalPages = Math.max(1, Math.ceil(loans.length / PAGE_SIZE));
+
+  const finesByLoanId = new Map<string, Fine>();
+  fines.forEach((f) => {
+    if (f.loan_id) finesByLoanId.set(f.loan_id, f);
+  });
+
+  const readerUnpaidFines = fines.filter((f) => !f.paid);
+  const readerUnpaidTotal = readerUnpaidFines.reduce(
+    (sum, f) => sum + (f.amount || 0),
+    0
+  );
 
   const paginatedLoans = loans.slice(
     (currentPage - 1) * PAGE_SIZE,
@@ -405,16 +432,20 @@ export default function LoansPage() {
     <div>
       <PageHeader
         title="Mượn / Trả sách"
-        subtitle={`${loans.length} phiếu mượn`}
+        subtitle={
+          statusFilter === "fines"
+            ? `${fines.length} khoản phạt`
+            : `${loans.length} phiếu mượn`
+        }
         action={
           isStaff && (
             <div className="flex gap-2">
               <button
                 onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-cream-100 border border-cream-300 rounded-xl text-sm font-bold text-charcoal-800 shadow-warm-xs transition-all"
               >
-                <Download className="w-4 h-4" />
-                Xuất
+                <Download className="w-4 h-4 text-charcoal-700" />
+                Xuất CSV
               </button>
 
               <button
@@ -426,9 +457,9 @@ export default function LoansPage() {
 
                   setModalOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-2 px-5 py-2.5 bg-butter hover:bg-butter-400 text-charcoal-900 rounded-xl text-sm font-bold border border-butter-300 shadow-warm-sm hover:shadow-warm transition-all"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 text-charcoal-900" />
                 Tạo phiếu mượn
               </button>
             </div>
@@ -436,70 +467,155 @@ export default function LoansPage() {
         }
       />
 
-      <div className="bg-white rounded-xl border border-slate-100 p-4 mb-5 flex gap-3 flex-wrap">
-        {["all", "active", "overdue", "returned"].map((status) => (
-          <button
-            key={status}
-            onClick={() => {
-              setCurrentPage(1);
-              setStatusFilter(status);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${statusFilter === status
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-          >
-            {status === "all"
-              ? "Tất cả"
-              : status === "active"
-                ? "Đang mượn"
-                : status === "overdue"
-                  ? "Quá hạn"
-                  : "Đã trả"}
-          </button>
-        ))}
+      <div className="bg-white rounded-2xl border border-cream-300 p-3 mb-6 shadow-warm flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { key: "all", label: "Tất cả" },
+            { key: "active", label: "Đang mượn" },
+            { key: "overdue", label: "Quá hạn" },
+            { key: "returned", label: "Đã trả" },
+            ...(!isStaff ? [{ key: "fines", label: `Tiền phạt của tôi (${fines.length})` }] : []),
+          ].map((tab) => {
+            const isActive = statusFilter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setCurrentPage(1);
+                  setStatusFilter(tab.key);
+                }}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  isActive
+                    ? "bg-butter text-charcoal-900 shadow-warm-xs border border-butter-400"
+                    : "bg-cream-50 text-charcoal-700 hover:bg-cream-100 border border-cream-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {!isStaff && readerUnpaidFines.length > 0 && (
+          <div className="text-xs text-terracotta-700 font-semibold flex items-center gap-2 bg-terracotta-50 border border-terracotta-200 px-4 py-2 rounded-xl shadow-warm-xs">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-terracotta-600" />
+            <span>Phạt chưa thanh toán: <strong className="font-extrabold text-terracotta-800">{formatCurrency(readerUnpaidTotal)}</strong> ({readerUnpaidFines.length} khoản)</span>
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <LoadingSpinner label="Đang tải..." />
+      {statusFilter === "fines" ? (
+        fines.length === 0 ? (
+          <EmptyState
+            icon={<CheckCircle2 className="w-12 h-12 text-sage-600" />}
+            title="Bạn không có khoản phạt nào"
+          />
+        ) : (
+          <div className="bg-white rounded-3xl border border-cream-300 overflow-hidden shadow-warm">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-cream-100/70 border-b border-cream-200">
+                  <tr>
+                    <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                      Sách
+                    </th>
+                    <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                      Số ngày trễ
+                    </th>
+                    <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                      Tiền phạt
+                    </th>
+                    <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                      Ngày tạo
+                    </th>
+                    <th className="text-right px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                      Trạng thái
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-cream-100">
+                  {fines.map((fine) => (
+                    <tr key={fine.id} className="hover:bg-cream-50/70 transition">
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-semibold text-charcoal-900">
+                          {fine.loans?.books?.title || "Sách đã mượn"}
+                        </p>
+                        <p className="text-xs font-mono text-charcoal-500 mt-0.5">
+                          {fine.loans?.books?.book_code || ""}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-charcoal-700">
+                        {fine.days_overdue} ngày
+                      </td>
+                      <td className="px-5 py-3.5 text-sm font-bold text-charcoal-900">
+                        {formatCurrency(fine.amount)}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-charcoal-500">
+                        {formatDate(fine.created_at)}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-bold ${
+                            fine.paid
+                              ? "bg-sage-100 text-charcoal-900 border border-sage-300"
+                              : "bg-terracotta-50 text-terracotta-700 border border-terracotta-200"
+                          }`}
+                        >
+                          {fine.paid ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-sage-600" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5 text-terracotta-600" />
+                          )}
+                          {fine.paid ? "Đã nộp" : "Chưa thanh toán"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      ) : loading ? (
+        <LoadingSpinner label="Đang tải phiếu mượn..." />
       ) : loans.length === 0 ? (
         <EmptyState
-          icon={<ArrowLeftRight className="w-12 h-12" />}
+          icon={<ArrowLeftRight className="w-12 h-12 text-sage-500" />}
           title="Chưa có phiếu mượn nào"
         />
       ) : (
-        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-3xl border border-cream-300 overflow-hidden shadow-warm">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-100">
+              <thead className="bg-cream-100/70 border-b border-cream-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Độc giả
                   </th>
 
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Sách
                   </th>
 
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Ngày mượn
                   </th>
 
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Hạn trả
                   </th>
 
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Trạng thái
                   </th>
 
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-right px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Thao tác
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-cream-100">
                 {paginatedLoans.map((loan) => {
                   const status = getLoanStatus(loan);
 
@@ -514,63 +630,90 @@ export default function LoansPage() {
                   return (
                     <tr
                       key={loan.id}
-                      className="hover:bg-slate-50 transition"
+                      className="hover:bg-cream-50/70 transition"
                     >
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-800">
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-bold text-charcoal-900">
                           {loan.profiles?.full_name || "—"}
                         </p>
 
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs font-mono text-charcoal-500 mt-0.5">
                           {loan.profiles?.reader_type || ""}
                         </p>
                       </td>
 
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-slate-700">
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-medium text-charcoal-900">
                           {loan.books?.title || "—"}
                         </p>
 
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs font-mono text-charcoal-500 mt-0.5">
                           {loan.books?.book_code || ""}
                         </p>
                       </td>
 
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-5 py-3.5 text-sm text-charcoal-600">
                         {loan.borrow_date
                           ? formatDate(loan.borrow_date)
                           : "—"}
                       </td>
 
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-slate-600">
+                      <td className="px-5 py-3.5">
+                        <p className="text-sm font-medium text-charcoal-900">
                           {formatDate(loan.due_date)}
                         </p>
 
-                        {daysLate > 0 &&
-                          loan.status !== "returned" && (
-                            <p className="text-xs text-rose-500 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              Phạt:{" "}
-                              {formatCurrency(calculatedFine)}
-                            </p>
-                          )}
+                        {(() => {
+                          const existingFine = finesByLoanId.get(loan.id);
+                          if (existingFine) {
+                            return (
+                              <p
+                                className={`text-xs flex items-center gap-1 font-bold mt-1 ${
+                                  existingFine.paid
+                                    ? "text-sage-700"
+                                    : "text-terracotta-700"
+                                }`}
+                              >
+                                {existingFine.paid ? (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-sage-600" />
+                                    Đã nộp: {formatCurrency(existingFine.amount)}
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-3.5 h-3.5 text-terracotta-600" />
+                                    Phạt chưa nộp: {formatCurrency(existingFine.amount)}
+                                  </>
+                                )}
+                              </p>
+                            );
+                          }
+                          if (daysLate > 0 && loan.status !== "returned") {
+                            return (
+                              <p className="text-xs text-terracotta-700 flex items-center gap-1 mt-1 font-bold">
+                                <AlertTriangle className="w-3.5 h-3.5 text-terracotta-600" />
+                                Phạt dự kiến: {formatCurrency(calculatedFine)}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
 
-                      <td className="px-4 py-3">
-                        <Badge color={status.color}>
+                      <td className="px-5 py-3.5">
+                        <Badge color={status.color as any}>
                           {status.label}
                         </Badge>
                       </td>
 
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-3.5 text-right">
                         {isStaff && loan.status !== "returned" && (
-                          <div className="inline-flex items-center gap-1">
+                          <div className="inline-flex items-center gap-2">
                             <button
                               onClick={() => handleRenew(loan)}
                               disabled={processingLoanId === loan.id}
                               title="Gia hạn"
-                              className="inline-flex items-center justify-center px-2.5 h-8 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center px-3 py-1.5 bg-cream-100 hover:bg-butter/25 text-charcoal-900 border border-cream-300 rounded-xl text-xs font-bold shadow-warm-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {processingLoanId === loan.id ? "Đang xử lý..." : "Gia hạn"}
                             </button>
@@ -579,9 +722,10 @@ export default function LoansPage() {
                               onClick={() => handleReturn(loan)}
                               disabled={processingLoanId === loan.id}
                               title="Trả sách"
-                              className="inline-flex items-center justify-center w-8 h-8 text-emerald-600 hover:bg-emerald-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center justify-center px-3 py-1.5 bg-sage-100 hover:bg-sage-200 text-charcoal-900 border border-sage-300 rounded-xl text-xs font-bold shadow-warm-xs gap-1 transition disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <CheckCircle2 className="w-4 h-4" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-sage-700" />
+                              <span>Trả sách</span>
                             </button>
                           </div>
                         )}
@@ -596,17 +740,17 @@ export default function LoansPage() {
       )}
 
       {loans.length > PAGE_SIZE && (
-        <div className="flex items-center justify-between mt-6">
+        <div className="flex items-center justify-between mt-6 px-1">
           <button
             type="button"
             onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-cream-300 rounded-xl text-sm font-bold text-charcoal-800 bg-white hover:bg-cream-100 shadow-warm-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Trang trước
           </button>
 
-          <span className="text-sm text-slate-500">
+          <span className="text-sm font-bold text-charcoal-800">
             Trang {currentPage} / {totalPages}
           </span>
 
@@ -616,7 +760,7 @@ export default function LoansPage() {
               setCurrentPage((page) => Math.min(totalPages, page + 1))
             }
             disabled={currentPage >= totalPages}
-            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 border border-cream-300 rounded-xl text-sm font-bold text-charcoal-800 bg-white hover:bg-cream-100 shadow-warm-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Trang sau
           </button>
@@ -633,7 +777,7 @@ export default function LoansPage() {
           className="space-y-4"
         >
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
               Độc giả *
             </label>
 
@@ -646,7 +790,7 @@ export default function LoansPage() {
                 })
               }
               required
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             >
               <option value="">
                 Chọn độc giả...
@@ -664,7 +808,7 @@ export default function LoansPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
               Sách *
             </label>
 
@@ -677,7 +821,7 @@ export default function LoansPage() {
                 })
               }
               required
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             >
               <option value="">
                 Chọn sách...
@@ -695,13 +839,13 @@ export default function LoansPage() {
             </select>
           </div>
 
-          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
-            <p className="text-sm text-blue-700">
+          <div className="rounded-2xl border border-cream-300 bg-gradient-to-br from-cream-100 to-ivory px-4 py-3.5 shadow-warm-xs">
+            <p className="text-sm font-bold text-charcoal-900">
               Thời hạn mượn hiện tại:{" "}
-              <strong>{loanPeriodDays} ngày</strong>.
+              <strong className="text-charcoal-900 underline decoration-butter-400">{loanPeriodDays} ngày</strong>.
             </p>
 
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs text-charcoal-600 mt-1">
               Hạn trả được hệ thống tự tính từ cấu hình thư
               viện và không thể chỉnh trực tiếp tại đây.
             </p>
@@ -712,7 +856,7 @@ export default function LoansPage() {
               type="button"
               onClick={() => setModalOpen(false)}
               disabled={borrowing}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 border border-cream-300 rounded-xl text-sm font-bold text-charcoal-700 bg-white hover:bg-cream-100 transition disabled:opacity-50 shadow-warm-xs"
             >
               Hủy
             </button>
@@ -720,7 +864,7 @@ export default function LoansPage() {
             <button
               type="submit"
               disabled={borrowing}
-              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 bg-butter hover:bg-butter-400 text-charcoal-900 border border-butter-300 rounded-xl text-sm font-bold shadow-warm-sm hover:shadow-warm transition disabled:opacity-50"
             >
               {borrowing
                 ? "Đang tạo..."
