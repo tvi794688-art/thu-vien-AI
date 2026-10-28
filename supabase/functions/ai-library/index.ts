@@ -342,10 +342,10 @@ Deno.serve(async (req: Request) => {
     });
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, account_status")
       .eq("id", user.id)
       .maybeSingle();
-    if (profileError || !profile || !["admin", "librarian", "reader"].includes(profile.role)) {
+    if (profileError || !profile || profile.account_status !== "active" || !["admin", "librarian", "reader"].includes(profile.role)) {
       return new Response(JSON.stringify({ error: "Unauthorized", success: false }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

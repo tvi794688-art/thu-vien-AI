@@ -1,3 +1,98 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #FFFCF3;
+    color: #2C2A24;
+    font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Custom scrollbar in Butter & Ivory tones */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFFDF7;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #E8E2D0;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #F4D77B;
+  }
+}
+
+/* Butter Yellow & Ivory Card Utilities */
+.card-library {
+  background-color: #FFFFFF;
+  border-radius: 1rem;
+  border: 1px solid rgba(229, 223, 200, 0.75);
+  box-shadow: 0 4px 16px -2px rgba(44, 42, 36, 0.05), 0 2px 6px -1px rgba(44, 42, 36, 0.02);
+}
+
+.card-library-hover {
+  transition: all 0.3s ease;
+}
+.card-library-hover:hover {
+  border-color: rgba(244, 215, 123, 0.85);
+  box-shadow: 0 12px 30px -4px rgba(44, 42, 36, 0.08), 0 4px 10px -2px rgba(44, 42, 36, 0.03);
+  transform: translateY(-2px);
+}
+
+/* Glassmorphism Presets */
+.glass-ivory {
+  background: rgba(255, 252, 243, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(244, 215, 123, 0.3);
+}
+
+.glass-cream {
+  background: rgba(255, 240, 188, 0.80);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(244, 215, 123, 0.4);
+}
+
+.glass-forest {
+  background: rgba(255, 252, 243, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(167, 196, 160, 0.4);
+}
+
+/* Gradient Utilities */
+.text-gradient-butter {
+  background: linear-gradient(135deg, #DEB333 0%, #BE921A 50%, #946F13 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-sage {
+  background: linear-gradient(135deg, #587452 0%, #71926A 50%, #8EAE87 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-forest {
+  background: linear-gradient(135deg, #2C2A24 0%, #4A473E 50%, #706B58 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #BE921A 0%, #F4D77B 50%, #DEB333 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+

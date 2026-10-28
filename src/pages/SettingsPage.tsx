@@ -131,37 +131,37 @@ export default function SettingsPage() {
     <div className="max-w-2xl">
       <PageHeader
         title="Cài đặt hệ thống"
-        subtitle="Cấu hình tham số thư viện"
+        subtitle="Cấu hình quy định mượn trả, mức phí phạt và chính sách thư viện"
       />
 
       <form
         onSubmit={handleSave}
-        className="bg-white rounded-xl border border-slate-100 p-6 space-y-5"
+        className="bg-white rounded-3xl border border-cream-300 p-8 space-y-6 shadow-warm"
       >
-        <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
-          <SettingsIcon className="w-5 h-5 text-slate-500" />
-          <h3 className="font-semibold text-slate-800">
-            Tham số thư viện
+        <div className="flex items-center gap-2.5 pb-5 border-b border-cream-200">
+          <SettingsIcon className="w-5 h-5 text-butter-700" />
+          <h3 className="font-bold text-charcoal-900 text-lg">
+            Quy định & Tham số vận hành
           </h3>
         </div>
 
         {error && (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
-            <p className="text-sm text-rose-600">{error}</p>
+          <div className="rounded-2xl border border-terracotta-200 bg-terracotta-50 px-4 py-3.5 shadow-warm-xs">
+            <p className="text-sm font-semibold text-terracotta-700">{error}</p>
           </div>
         )}
 
         {saved && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <p className="text-sm text-emerald-600 font-medium">
-              Đã lưu cài đặt thành công!
+          <div className="rounded-2xl border border-sage-300 bg-sage-50 px-4 py-3.5 shadow-warm-xs">
+            <p className="text-sm font-bold text-charcoal-900">
+              Cập nhật tham số hệ thống thành công!
             </p>
           </div>
         )}
 
         <div>
-          <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-            Tên thư viện
+          <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
+            Tên thư viện / Học viện
           </label>
 
           <input
@@ -173,14 +173,14 @@ export default function SettingsPage() {
                 library_name: e.target.value,
               })
             }
-            className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-              Số ngày mượn mặc định
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
+              Thời hạn mượn mặc định (ngày)
             </label>
 
             <input
@@ -193,12 +193,12 @@ export default function SettingsPage() {
                   loan_period_days: Number(e.target.value),
                 })
               }
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
               Số ngày gia hạn mỗi lần
             </label>
 
@@ -212,14 +212,14 @@ export default function SettingsPage() {
                   renewal_days: Number(e.target.value),
                 })
               }
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
               Số lần gia hạn tối đa
             </label>
 
@@ -233,13 +233,13 @@ export default function SettingsPage() {
                   max_renewals: Number(e.target.value),
                 })
               }
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-              Tiền phạt mỗi ngày (VNĐ)
+            <label className="text-sm font-bold text-charcoal-800 mb-1.5 block">
+              Tiền phạt mỗi ngày quá hạn (VNĐ)
             </label>
 
             <input
@@ -252,19 +252,19 @@ export default function SettingsPage() {
                   fine_per_day: Number(e.target.value),
                 })
               }
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-cream-300 bg-cream-50/60 rounded-xl text-sm text-charcoal-900 focus:outline-none focus:border-butter transition"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+        <div className="flex items-center gap-3 pt-5 border-t border-cream-200">
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-butter hover:bg-butter-400 text-charcoal-900 rounded-xl text-sm font-bold border border-butter-300 shadow-warm-sm hover:shadow-warm transition disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            {saving ? "Đang lưu..." : "Lưu cài đặt"}
+            <Save className="w-4 h-4 text-charcoal-900" />
+            {saving ? "Đang lưu cấu hình..." : "Lưu cài đặt"}
           </button>
         </div>
       </form>

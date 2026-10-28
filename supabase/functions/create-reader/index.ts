@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
     const { data: callerProfile, error: callerError } =
       await adminClient
         .from("profiles")
-        .select("role")
+        .select("role, account_status")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -106,8 +106,8 @@ Deno.serve(async (req) => {
     }
 
     if (
-      callerProfile.role !== "admin" &&
-      callerProfile.role !== "librarian"
+      callerProfile.account_status !== "active" ||
+      (callerProfile.role !== "admin" && callerProfile.role !== "librarian")
     ) {
       return jsonResponse(
         { error: "Bạn không có quyền tạo độc giả." },

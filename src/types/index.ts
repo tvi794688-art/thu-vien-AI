@@ -3,6 +3,7 @@ export type CardStatus = "active" | "suspended" | "expired";
 export type ReaderType = "student" | "teacher" | "staff" | "guest";
 export type LoanStatus = "active" | "returned" | "overdue";
 export type ReservationStatus = "pending" | "fulfilled" | "cancelled";
+export type LoanRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Profile {
   id: string;
@@ -12,6 +13,7 @@ export interface Profile {
   role: UserRole;
   reader_type: ReaderType;
   card_status: CardStatus;
+  account_status: "active" | "locked";
   address: string | null;
   created_at: string;
 }
@@ -29,6 +31,7 @@ export interface Book {
   available: number;
   description: string | null;
   cover_color: string;
+  cover_url?: string | null;
   created_at: string;
 }
 
@@ -46,6 +49,24 @@ export interface Loan {
   updated_at: string | null;
   books?: Book;
   profiles?: Profile;
+}
+
+export interface LoanRequest {
+  id: string;
+  request_code: string;
+  reader_id: string;
+  book_id: string;
+  expected_borrow_date: string | null;
+  status: LoanRequestStatus;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  loan_id: string | null;
+  created_at: string;
+  updated_at: string;
+  books?: Book;
+  profiles?: Profile;
+  loans?: Loan | null;
 }
 
 export interface Reservation {
