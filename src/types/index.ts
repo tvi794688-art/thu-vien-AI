@@ -29,6 +29,7 @@ export interface Book {
   available: number;
   description: string | null;
   cover_color: string;
+  cover_url?: string | null;
   created_at: string;
 }
 

@@ -16,48 +16,58 @@ export default function AIRecommendPage() {
       setRecommendation(res.response);
     } catch (err: unknown) {
       setRecommendation(`Lỗi: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
-    <div>
-      <PageHeader title="AI Gợi ý sách" subtitle="Gợi ý sách cá nhân hóa dựa trên thể loại, tác giả và lịch sử mượn" />
+    <div className="space-y-6">
+      <PageHeader title="AI Đề Xuất Cá Nhân Hóa" subtitle="Phân tích sở thích đọc và lộ trình học tập để gợi ý tác phẩm giá trị nhất cho bạn" />
 
       <div className="max-w-3xl mx-auto">
         {!hasResult ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 lg:p-12 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-blue-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-violet-500/20">
-              <BookHeart className="w-10 h-10 text-white" />
+          <div className="bg-white rounded-3xl border border-cream-300 p-8 lg:p-14 text-center shadow-warm">
+            <div className="w-20 h-20 bg-cream-100 border border-cream-300 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-warm-xs text-butter-700">
+              <BookHeart className="w-10 h-10" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Gợi ý sách thông minh</h2>
-            <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
-              AI sẽ phân tích lịch sử mượn sách của bạn (đã ẩn danh thông tin cá nhân) và gợi ý những cuốn sách phù hợp với sở thích của bạn.
+            <h2 className="text-2xl font-extrabold text-charcoal-900 mb-2.5 tracking-tight">Bộ Sưu Tập Tuyển Chọn Thông Minh</h2>
+            <p className="text-sm text-charcoal-600 max-w-md mx-auto mb-8 leading-relaxed">
+              Trợ lý Gemini AI sẽ phân tích lịch sử đọc sách của bạn (đã được ẩn danh thông tin cá nhân) để đề xuất những cuốn sách phù hợp nhất với phong cách và chuyên ngành của bạn.
             </p>
-            <button onClick={handleRecommend} className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-violet-500/20">
-              <Sparkles className="w-5 h-5" /> Nhận gợi ý sách
+            <button
+              onClick={handleRecommend}
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-butter hover:bg-butter-400 border border-butter-300 text-charcoal-900 rounded-xl text-sm font-bold transition shadow-warm-sm hover:shadow-warm hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Sparkles className="w-5 h-5 text-charcoal-900" /> Khám phá đề xuất ngay
             </button>
           </div>
         ) : (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={handleRecommend} disabled={loading} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition disabled:opacity-50">
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Làm mới gợi ý
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                onClick={handleRecommend}
+                disabled={loading}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-cream-300 rounded-xl text-xs font-bold text-charcoal-800 hover:bg-cream-100 transition disabled:opacity-50 shadow-warm-xs"
+              >
+                <RefreshCw className={`w-4 h-4 text-butter-700 ${loading ? "animate-spin" : ""}`} /> Làm mới danh sách gợi ý
               </button>
             </div>
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 lg:p-8">
+            <div className="bg-white rounded-3xl border border-cream-300 p-6 lg:p-8 shadow-warm">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-16">
-                  <div className="w-12 h-12 border-3 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
-                  <p className="text-sm text-slate-500">AI đang phân tích và gợi ý sách...</p>
+                  <div className="w-12 h-12 border-3 border-butter-500 border-t-transparent rounded-full animate-spin mb-4" />
+                  <p className="text-sm font-bold text-charcoal-800">AI đang tổng hợp và phân tích danh mục sách phù hợp...</p>
                 </div>
               ) : (
-                <div className="bg-gradient-to-br from-violet-50 to-blue-50 rounded-xl p-6">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-6 h-6 text-violet-500 flex-shrink-0 mt-0.5" />
+                <div className="bg-gradient-to-br from-cream-100 via-ivory to-cream-50 rounded-2xl p-6 border border-cream-300 shadow-warm-xs">
+                  <div className="flex items-start gap-3.5">
+                    <Sparkles className="w-6 h-6 text-butter-700 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide mb-3">Gợi ý từ AI</p>
-                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{recommendation}</p>
+                      <p className="text-xs font-bold text-charcoal-700 uppercase tracking-widest mb-3">
+                        Danh Mục Sách Đề Xuất Cho Bạn (Curated Shelf)
+                      </p>
+                      <p className="text-sm text-charcoal-900 leading-relaxed whitespace-pre-wrap">{recommendation}</p>
                     </div>
                   </div>
                 </div>

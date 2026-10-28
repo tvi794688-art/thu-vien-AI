@@ -14,12 +14,16 @@ import AISummaryPage from "@/pages/AISummaryPage";
 import AIRecommendPage from "@/pages/AIRecommendPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import LandingPage from "@/pages/LandingPage";
 import { LoadingSpinner } from "@/components/UI";
 
 function AppContent() {
   const { session, profile, loading } = useAuth();
   const isResetPasswordPage =
     window.location.pathname === "/reset-password";
+  const [unauthView, setUnauthView] = useState<"landing" | "login">(
+    window.location.pathname === "/login" ? "login" : "landing"
+  );
   const [page, setPage] = useState<PageKey>("dashboard");
 
   const isStaff =
@@ -58,7 +62,10 @@ function AppContent() {
   }
 
   if (!session || !profile) {
-    return <LoginPage />;
+    if (unauthView === "login") {
+      return <LoginPage onBackToLanding={() => setUnauthView("landing")} />;
+    }
+    return <LandingPage onOpenDirectLogin={() => setUnauthView("login")} />;
   }
 
   function renderPage() {

@@ -150,27 +150,51 @@ export default function StatisticsPage() {
 
   return (
     <div>
-      <PageHeader title="Thống kê thư viện" subtitle="Phân tích hoạt động mượn trả và thư viện" />
+      <PageHeader
+        title="Thống kê thư viện"
+        subtitle="Báo cáo phân tích chuyên sâu về tuần hoàn sách và hoạt động bạn đọc"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Popular books */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-emerald-500" /> Sách mượn nhiều nhất
+        <div className="bg-white rounded-3xl border border-cream-300 p-6 shadow-warm">
+          <h3 className="font-bold text-charcoal-900 text-base flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-butter-700" /> Sách được mượn nhiều nhất
           </h3>
-          {popularBooks.length === 0 ? <EmptyState title="Chưa có dữ liệu" /> : (
+          {popularBooks.length === 0 ? (
+            <EmptyState title="Chưa có dữ liệu mượn sách" />
+          ) : (
             <div className="space-y-2">
               {popularBooks.map(({ book, count }, idx) => {
                 const cc = getCoverColor(book.cover_color);
                 return (
-                  <div key={book.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition">
-                    <span className="text-sm font-bold text-slate-300 w-5">{idx + 1}</span>
-                    <div className={`w-8 h-8 rounded-lg ${cc.bg} ${cc.text} flex items-center justify-center font-bold text-xs`}>{book.title.charAt(0)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">{book.title}</p>
-                      <p className="text-xs text-slate-400">{book.author}</p>
+                  <div
+                    key={book.id}
+                    className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-cream-50/80 transition"
+                  >
+                    <span className="text-sm font-extrabold text-butter-700 w-6 flex-shrink-0 text-center">
+                      #{idx + 1}
+                    </span>
+                    <div
+                      className={`w-9 h-11 rounded-xl ${cc.bg} ${cc.text} flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-warm-xs border border-cream-200 overflow-hidden`}
+                    >
+                      {book.cover_url ? (
+                        <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                      ) : (
+                        book.title.charAt(0)
+                      )}
                     </div>
-                    <Badge color="green">{count} lượt</Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-charcoal-900 truncate">
+                        {book.title}
+                      </p>
+                      <p className="text-xs text-charcoal-500 font-medium truncate">
+                        {book.author}
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-butter/25 text-charcoal-900 border border-butter-300">
+                      {count} lượt
+                    </span>
                   </div>
                 );
               })}
@@ -179,21 +203,36 @@ export default function StatisticsPage() {
         </div>
 
         {/* Active readers */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-blue-500" /> Độc giả hoạt động tích cực
+        <div className="bg-white rounded-3xl border border-cream-300 p-6 shadow-warm">
+          <h3 className="font-bold text-charcoal-900 text-base flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-butter-700" /> Độc giả hoạt động tích cực
           </h3>
-          {activeReaders.length === 0 ? <EmptyState title="Chưa có dữ liệu" /> : (
+          {activeReaders.length === 0 ? (
+            <EmptyState title="Chưa có dữ liệu bạn đọc" />
+          ) : (
             <div className="space-y-2">
               {activeReaders.map(({ reader, count }, idx) => (
-                <div key={reader.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition">
-                  <span className="text-sm font-bold text-slate-300 w-5">{idx + 1}</span>
-                  <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-xs font-medium text-slate-600">{reader.full_name.charAt(0)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{reader.full_name}</p>
-                    <p className="text-xs text-slate-400">{reader.reader_type}</p>
+                <div
+                  key={reader.id}
+                  className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-cream-50/80 transition"
+                >
+                  <span className="text-sm font-extrabold text-butter-700 w-6 flex-shrink-0 text-center">
+                    #{idx + 1}
+                  </span>
+                  <div className="w-9 h-9 bg-cream-200 text-charcoal-900 rounded-2xl flex items-center justify-center text-xs font-bold border border-cream-300 shadow-warm-xs flex-shrink-0">
+                    {reader.full_name.charAt(0)}
                   </div>
-                  <Badge color="blue">{count} lượt mượn</Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-charcoal-900 truncate">
+                      {reader.full_name}
+                    </p>
+                    <p className="text-xs font-mono text-charcoal-500">
+                      {reader.reader_type}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-sage-100 text-charcoal-900 border border-sage-300">
+                    {count} lượt mượn
+                  </span>
                 </div>
               ))}
             </div>
@@ -202,18 +241,27 @@ export default function StatisticsPage() {
       </div>
 
       {/* Category distribution */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-violet-500" /> Sách theo thể loại
+      <div className="bg-white rounded-3xl border border-cream-300 p-6 shadow-warm mb-6">
+        <h3 className="font-bold text-charcoal-900 text-base flex items-center gap-2 mb-5">
+          <BarChart3 className="w-5 h-5 text-butter-700" /> Quy mô tài liệu theo thể loại
         </h3>
-        {categoryStats.length === 0 ? <EmptyState title="Chưa có dữ liệu" /> : (
-          <div className="space-y-3">
+        {categoryStats.length === 0 ? (
+          <EmptyState title="Chưa có dữ liệu danh mục" />
+        ) : (
+          <div className="space-y-3.5">
             {categoryStats.map((cat) => (
-              <div key={cat.category} className="flex items-center gap-3">
-                <span className="text-sm text-slate-600 w-24 flex-shrink-0">{cat.category}</span>
-                <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-violet-500 to-blue-500 rounded-full flex items-center justify-end px-2 transition-all" style={{ width: `${(cat.count / maxCatCount) * 100}%` }}>
-                    <span className="text-xs text-white font-medium">{cat.count}</span>
+              <div key={cat.category} className="flex items-center gap-4">
+                <span className="text-sm font-semibold text-charcoal-800 w-28 flex-shrink-0 truncate">
+                  {cat.category}
+                </span>
+                <div className="flex-1 bg-cream-100 rounded-full h-7 overflow-hidden border border-cream-200 p-0.5">
+                  <div
+                    className="h-full bg-gradient-to-r from-butter-300 via-butter-400 to-sage-300 rounded-full flex items-center justify-end px-3 transition-all duration-500 shadow-warm-xs"
+                    style={{ width: `${Math.max((cat.count / maxCatCount) * 100, 8)}%` }}
+                  >
+                    <span className="text-xs text-charcoal-900 font-bold">
+                      {cat.count} cuốn
+                    </span>
                   </div>
                 </div>
               </div>
@@ -223,30 +271,52 @@ export default function StatisticsPage() {
       </div>
 
       {/* Overdue loans */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-          <AlertTriangle className="w-5 h-5 text-rose-500" /> Sách quá hạn ({overdueLoans.length})
-        </h3>
-        {overdueLoans.length === 0 ? <EmptyState title="Không có sách quá hạn" /> : (
+      <div className="bg-white rounded-3xl border border-cream-300 overflow-hidden shadow-warm mb-6">
+        <div className="p-6 border-b border-cream-200 flex items-center justify-between">
+          <h3 className="font-bold text-charcoal-900 text-base flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-terracotta-600" /> Sách quá hạn ({overdueLoans.length})
+          </h3>
+        </div>
+        {overdueLoans.length === 0 ? (
+          <div className="p-6">
+            <EmptyState title="Không có lượt mượn nào bị quá hạn" />
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-100">
+              <thead className="bg-cream-100/70 border-b border-cream-200">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Độc giả</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Sách</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Hạn trả</th>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">Trễ</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                    Độc giả
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                    Sách
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                    Hạn trả
+                  </th>
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
+                    Trễ
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-cream-100">
                 {overdueLoans.map((loan) => {
                   const days = getDaysOverdue(loan.due_date);
                   return (
-                    <tr key={loan.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 text-sm text-slate-700">{loan.profiles?.full_name}</td>
-                      <td className="px-4 py-2 text-sm text-slate-700">{loan.books?.title}</td>
-                      <td className="px-4 py-2 text-sm text-slate-600">{formatDate(loan.due_date)}</td>
-                      <td className="px-4 py-2"><Badge color="red">{days} ngày</Badge></td>
+                    <tr key={loan.id} className="hover:bg-cream-50/70 transition">
+                      <td className="px-5 py-3.5 text-sm font-bold text-charcoal-900">
+                        {loan.profiles?.full_name}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm font-medium text-charcoal-900">
+                        {loan.books?.title}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-charcoal-600">
+                        {formatDate(loan.due_date)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Badge color="terracotta">{days} ngày</Badge>
+                      </td>
                     </tr>
                   );
                 })}
@@ -258,66 +328,68 @@ export default function StatisticsPage() {
 
       {/* Unpaid fines */}
       {unpaidFines.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
-            Phạt chưa thanh toán ({unpaidFines.length})
-          </h3>
+        <div className="bg-white rounded-3xl border border-cream-300 overflow-hidden shadow-warm">
+          <div className="p-6 border-b border-cream-200">
+            <h3 className="font-bold text-charcoal-900 text-base flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-terracotta-600" />
+              Phạt chưa thanh toán ({unpaidFines.length})
+            </h3>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-100">
+              <thead className="bg-cream-100/70 border-b border-cream-200">
                 <tr>
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Độc giả
                   </th>
 
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Sách
                   </th>
 
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Số ngày trễ
                   </th>
 
-                  <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                  <th className="text-left px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                     Tiền phạt
                   </th>
 
                   {isStaff && (
-                    <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase">
+                    <th className="text-right px-5 py-3.5 text-xs font-bold text-charcoal-700 uppercase tracking-wider">
                       Thao tác
                     </th>
                   )}
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-cream-100">
                 {unpaidFines.map((fine) => (
-                  <tr key={fine.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-2 text-sm text-slate-700">
+                  <tr key={fine.id} className="hover:bg-cream-50/70 transition">
+                    <td className="px-5 py-3.5 text-sm font-bold text-charcoal-900">
                       {fine.profiles?.full_name}
                     </td>
 
-                    <td className="px-4 py-2 text-sm text-slate-700">
+                    <td className="px-5 py-3.5 text-sm font-medium text-charcoal-900">
                       {fine.loans?.books?.title || "—"}
                     </td>
 
-                    <td className="px-4 py-2 text-sm text-slate-600">
+                    <td className="px-5 py-3.5 text-sm text-charcoal-700">
                       {fine.days_overdue} ngày
                     </td>
 
-                    <td className="px-4 py-2 text-sm font-medium text-rose-600">
+                    <td className="px-5 py-3.5 text-sm font-bold text-terracotta-700">
                       {formatCurrency(fine.amount)}
                     </td>
 
                     {isStaff && (
-                      <td className="px-4 py-2">
+                      <td className="px-5 py-3.5 text-right">
                         <button
                           onClick={() => handleMarkFinePaid(fine.id)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition"
+                          className="px-4 py-1.5 bg-butter hover:bg-butter-400 text-charcoal-900 border border-butter-300 rounded-xl text-xs font-bold shadow-warm-xs hover:shadow-warm transition"
                         >
-                          Đã thanh toán
+                          Xác nhận thu phạt
                         </button>
                       </td>
                     )}
